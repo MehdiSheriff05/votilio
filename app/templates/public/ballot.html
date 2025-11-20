@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+{% block content %}
+{% set primary = election.theme_primary or '#0d6efd' %}
+{% set secondary = election.theme_secondary or '#6610f2' %}
+{% set accent = election.theme_accent or '#f0ad4e' %}
+<style>
+  .ballot-title {
+    color: {{ primary }};
+  }
+  .btn-theme {
+    background-color: {{ primary }};
+    border-color: {{ primary }};
+  }
+  .btn-theme:hover {
+    background-color: {{ secondary }};
+    border-color: {{ secondary }};
+  }
+  .card .badge {
+    background-color: {{ accent }};
+  }
+</style>
+<h2 class="ballot-title">{{ election.name }} Ballot</h2>
+{% if voter_name %}
+  <div class="alert alert-secondary bg-opacity-50 border-0 rounded-3 py-3 px-4">
+    <strong>Hi {{ voter_name }}!</strong> You're securely connected to this ballot. Make your selections below and submit when you're ready.
+  </div>
+{% endif %}
+<form method="post" action="{{ url_for('public.submit_ballot') }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  {% for position in positions %}
+    <div class="card mb-3">
+      <div class="card-body">
+        <h5>{{ position.name }}</h5>
+        <p>{{ position.description }}</p>
+        <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3">
+          {% for candidate in position.candidates %}
+            {% set input_id = 'candidate_' ~ candidate.id %}
+            <div class="col">
+              <input class="btn-check" type="radio" name="position_{{ position.id }}" id="{{ input_id }}" value="{{ candidate.id }}" {% if loop.first %}required{% endif %}>
+              <label class="card candidate-card h-100" for="{{ input_id }}">
+                {% if candidate.photo_url %}
+                  {% if candidate.photo_url.startswith('http') %}
+                    {% set candidate_image = candidate.photo_url %}
+                  {% else %}
+                    {% set candidate_image = url_for('static', filename=candidate.photo_url) %}
+                  {% endif %}
+                {% else %}
+                  {% set candidate_image = url_for('static', filename='img/candidate-placeholder.svg') %}
+                {% endif %}
+                <div class="ratio ratio-5x4 mb-3">
+                  <img src="{{ candidate_image }}" class="candidate-photo" alt="{{ candidate.name }}">
+                </div>
+                <div class="px-3 pb-3 d-flex flex-column h-100">
+                  <h6 class="mb-1">{{ candidate.name }}</h6>
+                  <p class="text-muted small flex-grow-1 mb-0">{{ candidate.description or 'Awaiting candidate details.' }}</p>
+                </div>
+              </label>
+            </div>
+          {% else %}
+            <div class="col">
+              <div class="card border-0 shadow-sm p-4 text-center text-muted">
+                No candidates for this position yet.
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  {% endfor %}
+  <button class="btn btn-theme text-white" type="submit">Submit Ballot</button>
+</form>
+{% endblock %}

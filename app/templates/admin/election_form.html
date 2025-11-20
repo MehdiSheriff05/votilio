@@ -1,0 +1,394 @@
+{% extends 'admin/layout.html' %}
+{% block admin_content %}
+  {% if invitation_form %}
+    <ul class="nav nav-tabs mb-3">
+      <li class="nav-item">
+        <a class="nav-link {{ 'active' if active_tab == 'invitations' else '' }}" href="{{ url_for('admin.manage_invitations', election_id=election.id, tab='invitations') }}">Queue Emails</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link {{ 'active' if active_tab == 'identifiers' else '' }}" href="{{ url_for('admin.manage_invitations', election_id=election.id, tab='identifiers') }}">Unique Identifiers</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link {{ 'active' if active_tab == 'invitees' else '' }}" href="{{ url_for('admin.manage_invitations', election_id=election.id, tab='invitees') }}">Invitee Management</a>
+      </li>
+    </ul>
+    {% if active_tab == 'invitations' %}
+    <h2>Manage Invitations - {{ election.name }}</h2>
+    <div class="mb-3">
+      <p class="mb-1">Total invitations: {{ stats.total }}</p>
+      <p class="mb-0">Sent: {{ stats.sent }} | Used: {{ stats.used }} | Reminders sent: {{ stats.reminders }}</p>
+    </div>
+    <div class="alert alert-info">
+      Add one invite per line. Use <strong>name, email</strong> if you want the voter greeted personally (for example, <em>Ada Lovelace, ada@example.com</em>) or just type the email address by itself.
+    </div>
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="mb-3">
+        <label class="form-label">Invite entries</label>
+        <textarea class="form-control" name="emails" rows="8" placeholder="Ada Lovelace, ada@example.com&#10;grace@example.com"></textarea>
+        <div class="form-text">One entry per line. Formats accepted: <code>email@example.com</code>, <code>Full Name, email@example.com</code>, or <code>Full Name | email@example.com</code>.</div>
+      </div>
+      <div class="form-check mb-3">
+        <input class="form-check-input" type="checkbox" name="show_keys" id="show_keys">
+        <label class="form-check-label" for="show_keys">Display generated keys immediately (copy before leaving!)</label>
+        <div class="form-text">Keys will only display once; they remain hashed in storage for privacy.</div>
+      </div>
+      <button class="btn btn-primary" type="submit">Queue Invitations</button>
+    </form>
+    <div class="mt-4 d-flex gap-2 flex-wrap">
+      <form method="post" action="{{ url_for('admin.send_invitations', election_id=election.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn btn-success" type="submit">Send Pending Emails</button>
+      </form>
+      <form method="post" action="{{ url_for('admin.send_reminders', election_id=election.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn btn-outline-secondary" type="submit">Send Reminders</button>
+      </form>
+    </div>
+    {% elif active_tab == 'identifiers' %}
+    <h2>Unique Identifiers - {{ election.name }}</h2>
+    <div class="row mt-3">
+      <div class="col-md-6">
+        <form method="post" class="card card-body">
+          <h5 class="card-title">Generate Single Key</h5>
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="generate_unique_key" value="1">
+          <div class="mb-3">
+            <label class="form-label">Name (optional)</label>
+            <input class="form-control" name="single_name" placeholder="Ada Lovelace">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Email (optional)</label>
+            <input class="form-control" name="single_email" placeholder="user@example.com">
+            <div class="form-text">Leave blank to create a key without linking to an email.</div>
+          </div>
+          <button class="btn btn-outline-primary" type="submit">Generate Key</button>
+        </form>
+        {% if manual_key %}
+          <div class="alert alert-info mt-3">
+            Manual key generated for <strong>{{ manual_key.name }} ({{ manual_key.email }})</strong>: <code>{{ manual_key.key }}</code>
+          </div>
+        {% endif %}
+        {% if new_keys %}
+          <div class="alert alert-warning mt-3">
+            These keys are visible one time only. Copy or export them now if you plan to send them manually.
+          </div>
+          <div class="table-responsive">
+            <table class="table table-striped">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Voting key</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in new_keys %}
+                  <tr>
+                    <td>{{ row.name or 'N/A' }}</td>
+                    <td>{{ row.email or 'N/A' }}</td>
+                    <td><code>{{ row.key }}</code></td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+    <div class="mt-4">
+      <div class="d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Existing Keys</h5>
+        <small class="text-muted">Timestamps shown in {{ timezone_label }}</small>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-hover align-middle">
+          <thead>
+            <tr>
+              <th>Identifier</th>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Sent</th>
+              <th>Used at</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for invite in invitations %}
+              <tr>
+                <td><code>{{ invite.last_generated_key or 'Unavailable' }}</code></td>
+                <td>{{ invite.name or 'N/A' }}</td>
+                <td>{{ invite.email or 'N/A' }}</td>
+                <td>{{ invite.sent_at|display_time('Not sent') }}</td>
+                <td>{{ invite.used_at|display_time('Not used yet') }}</td>
+                <td>
+                  {% if invite.used %}
+                    <span class="badge bg-success">Used</span>
+                  {% else %}
+                    <span class="badge bg-secondary">Pending</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <form method="post" action="{{ url_for('admin.delete_invitation', invitation_id=invite.id) }}" onsubmit="return confirm('Delete this key? Users with this identifier will no longer be able to vote.');">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="next_tab" value="identifiers">
+                    <button class="btn btn-outline-danger btn-sm" type="submit">Delete</button>
+                  </form>
+                </td>
+              </tr>
+            {% else %}
+              <tr>
+                <td colspan="7">No invitations created yet.</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% else %}
+    <div class="d-flex justify-content-between flex-wrap align-items-start">
+      <div>
+        <h2 class="mb-1">Invitee Management - {{ election.name }}</h2>
+        <p class="text-muted mb-3">Track delivery, reminders, and participation per key.</p>
+      </div>
+      <form method="post" action="{{ url_for('admin.send_reminders', election_id=election.id) }}" class="mb-3 ms-auto">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn btn-outline-primary" type="submit" {% if invitational_actions.reminder_ready == 0 %}disabled{% endif %}>
+          Send reminder to awaiting voters ({{ invitational_actions.reminder_ready }})
+        </button>
+      </form>
+    </div>
+    <div class="row g-3 mb-3">
+      <div class="col-md-3">
+        <div class="card text-center h-100">
+          <div class="card-body">
+            <div class="text-muted small">Total invitees</div>
+            <div class="display-6">{{ invitee_breakdown.total }}</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card text-center h-100">
+          <div class="card-body">
+            <div class="text-muted small">Named invites</div>
+            <div class="display-6">{{ invitee_breakdown.named }}</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card text-center h-100">
+          <div class="card-body">
+            <div class="text-muted small">Awaiting votes</div>
+            <div class="display-6 text-warning">{{ invitee_breakdown.pending }}</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card text-center h-100">
+          <div class="card-body">
+            <div class="text-muted small">Completed ballots</div>
+            <div class="display-6 text-success">{{ invitee_breakdown.used }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card mb-4">
+      <div class="card-body">
+        <h5 class="card-title">Add invitee manually</h5>
+        <p class="text-muted small mb-3">Use this when you only need to add one person without re-uploading a full list.</p>
+        <form method="post" action="{{ url_for('admin.add_invitee', election_id=election.id) }}" class="row g-3 align-items-end">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="next_tab" value="invitees">
+          <div class="col-md-4">
+            <label class="form-label">Name</label>
+            <input class="form-control" name="invitee_name" placeholder="Ada Lovelace">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Email</label>
+            <input class="form-control" name="invitee_email" placeholder="ada@example.com" required>
+          </div>
+          <div class="col-md-2">
+            <div class="form-check mt-4">
+              <input class="form-check-input" type="checkbox" id="send_now" name="send_now">
+              <label class="form-check-label" for="send_now">Send email now</label>
+            </div>
+          </div>
+          <div class="col-md-2">
+            <button class="btn btn-primary w-100" type="submit">Add Invitee</button>
+          </div>
+        </form>
+      </div>
+    </div>
+    <small class="text-muted d-block mb-2">Timestamps shown in {{ timezone_label }}</small>
+    <div class="table-responsive">
+      <table class="table table-hover align-middle">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Key issued</th>
+            <th>Email status</th>
+            <th>Reminder</th>
+            <th>Vote status</th>
+            <th>Manage</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for invite in invitations %}
+            <tr>
+              <td>{{ invite.name or 'Not provided' }}</td>
+              <td>{{ invite.email or 'Not provided' }}</td>
+              <td><code>{{ invite.last_generated_key or 'Pending' }}</code></td>
+              <td>
+                {% if invite.sent_at %}
+                  <span class="badge bg-success">Email sent</span>
+                  <div class="small text-muted">{{ invite.sent_at|display_time('Not emailed yet') }}</div>
+                {% else %}
+                  <span class="badge bg-secondary">Not sent</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if invite.reminder_sent_at %}
+                  <span class="badge bg-info text-dark">Reminder sent</span>
+                  <div class="small text-muted">{{ invite.reminder_sent_at|display_time('No reminder yet') }}</div>
+                {% else %}
+                  <span class="badge bg-light text-dark border">Pending</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if invite.used %}
+                  <span class="badge bg-success">Voted</span>
+                  <div class="small text-muted">{{ invite.used_at|display_time('Not voted yet') }}</div>
+                {% else %}
+                  <span class="badge bg-warning text-dark">Not voted</span>
+                {% endif %}
+              </td>
+              <td style="min-width: 260px;">
+                <details>
+                  <summary class="btn btn-link btn-sm p-0">Edit contact</summary>
+                  <div class="border rounded p-2 mt-2 bg-light">
+                    <form method="post" action="{{ url_for('admin.update_invitation', invitation_id=invite.id) }}">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                      <input type="hidden" name="next_tab" value="invitees">
+                      <div class="mb-2">
+                        <input class="form-control form-control-sm" name="name" placeholder="Name" value="{{ invite.name or '' }}">
+                      </div>
+                      <div class="mb-2">
+                        <input class="form-control form-control-sm" name="email" placeholder="Email" value="{{ invite.email or '' }}">
+                      </div>
+                      <button class="btn btn-primary btn-sm" type="submit">Save</button>
+                    </form>
+                  </div>
+                </details>
+                <div class="d-flex flex-column gap-2 mt-2">
+                  <form method="post" action="{{ url_for('admin.send_single_invitation', invitation_id=invite.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="next_tab" value="invitees">
+                    <button class="btn btn-outline-primary btn-sm w-100" type="submit" {% if not invite.email %}disabled{% endif %}>
+                      {% if invite.sent_at %}Resend invite{% else %}Send invite{% endif %}
+                    </button>
+                  </form>
+                  <form method="post" action="{{ url_for('admin.send_single_reminder', invitation_id=invite.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="next_tab" value="invitees">
+                    <button class="btn btn-outline-secondary btn-sm w-100" type="submit" {% if not invite.email or invite.used or not invite.sent_at %}disabled{% endif %}>
+                      Send reminder
+                    </button>
+                  </form>
+                </div>
+                <form method="post" class="mt-2" action="{{ url_for('admin.delete_invitation', invitation_id=invite.id) }}" onsubmit="return confirm('Delete this invitation? The key will be revoked.');">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <input type="hidden" name="next_tab" value="invitees">
+                  <button class="btn btn-outline-danger btn-sm w-100" type="submit">Delete</button>
+                </form>
+              </td>
+            </tr>
+          {% else %}
+            <tr>
+              <td colspan="7">No invitees captured yet.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+  {% elif position_form %}
+    <h2>New Position - {{ election.name }}</h2>
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="mb-3">
+        <label class="form-label">Name</label>
+        <input class="form-control" name="name" required>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Description</label>
+        <textarea class="form-control" name="description"></textarea>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Number of candidates</label>
+        <input type="number" class="form-control" name="candidate_slots" min="1" value="1">
+      </div>
+      <button class="btn btn-primary" type="submit">Save Position</button>
+    </form>
+  {% elif candidate_form %}
+    <h2>New Candidate - {{ position.name }}</h2>
+    <form method="post" enctype="multipart/form-data">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="mb-3">
+        <label class="form-label">Name</label>
+        <input class="form-control" name="name" required>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Description</label>
+        <textarea class="form-control" name="description"></textarea>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Photo</label>
+        <input type="file" class="form-control" name="photo" accept="image/*">
+      </div>
+      <button class="btn btn-primary" type="submit">Save Candidate</button>
+    </form>
+  {% else %}
+    <h2>Create Election</h2>
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="mb-3">
+        <label class="form-label">Name</label>
+        <input class="form-control" name="name" required>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Description</label>
+        <textarea class="form-control" name="description"></textarea>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Election access code</label>
+        <input class="form-control" name="access_code" placeholder="e.g. SPRING2025" required>
+        <div class="form-text">Share this code with voters so they can access the correct election.</div>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Start time (local, optional)</label>
+        <input type="datetime-local" class="form-control" name="start_time" value="{{ request.form.get('start_time', '') }}" step="60">
+      </div>
+      <div class="mb-3">
+        <label class="form-label">End time (local, optional)</label>
+        <input type="datetime-local" class="form-control" name="end_time" value="{{ request.form.get('end_time', '') }}" step="60">
+      </div>
+      <div class="row g-3">
+        <div class="col-md-4">
+          <label class="form-label">Primary color</label>
+          <input type="color" class="form-control form-control-color" name="theme_primary" value="{{ request.form.get('theme_primary', '#0d6efd') }}">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Secondary color</label>
+          <input type="color" class="form-control form-control-color" name="theme_secondary" value="{{ request.form.get('theme_secondary', '#6610f2') }}">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Accent color</label>
+          <input type="color" class="form-control form-control-color" name="theme_accent" value="{{ request.form.get('theme_accent', '#f0ad4e') }}">
+        </div>
+      </div>
+      <button class="btn btn-primary" type="submit">Create</button>
+    </form>
+  {% endif %}
+{% endblock %}

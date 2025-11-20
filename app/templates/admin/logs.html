@@ -1,0 +1,42 @@
+{% extends 'admin/layout.html' %}
+{% block admin_content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2>Audit Logs</h2>
+  {% if session.get('is_super_admin') %}
+    <!-- button to wipe logs -->
+    <form method="post" action="{{ url_for('admin.clear_audit_logs') }}" onsubmit="return confirm('Clear all audit logs?');">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button class="btn btn-outline-danger btn-sm" type="submit">Clear Logs</button>
+    </form>
+  {% endif %}
+</div>
+<div class="alert alert-info">
+  Showing the 200 most recent events including admin actions, key usage, and ballot submissions.
+</div>
+<div class="table-responsive">
+  <table class="table table-striped align-middle">
+    <thead>
+      <tr>
+        <th>Time</th>
+        <th>Event</th>
+        <th>Details</th>
+        <th>Admin</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for log in logs %}
+        <tr>
+          <td>{{ log.created_at|display_time('N/A') }}</td>
+          <td><span class="badge bg-secondary text-uppercase">{{ log.event_type }}</span></td>
+          <td>{{ log.message }}</td>
+          <td>{{ log.admin.username if log.admin else 'System' }}</td>
+        </tr>
+      {% else %}
+        <tr>
+          <td colspan="4">No audit events recorded yet.</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

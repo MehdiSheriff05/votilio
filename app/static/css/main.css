@@ -1,0 +1,100 @@
+body {
+  font-family: "SF Pro Display", "Helvetica Neue", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background-color: #f5f5f7;
+  color: #1d1d1f;
+}
+
+.navbar {
+  background: rgba(255, 255, 255, 0.92) !important;
+  box-shadow: 0 8px 30px rgba(149, 157, 165, 0.2);
+  color: #1d1d1f;
+}
+
+.navbar .navbar-brand,
+.navbar .btn,
+.navbar .dropdown-toggle,
+.navbar .dropdown-menu {
+  color: #1d1d1f !important;
+}
+
+.card {
+  border: none;
+  border-radius: 22px;
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.08);
+  background: #fff;
+}
+
+.candidate-photo {
+  object-fit: cover;
+  width: 100%;
+  height: 100%;
+  border-radius: 18px 18px 0 0;
+}
+
+.ratio-5x4 {
+  --bs-aspect-ratio: 80%;
+}
+
+.candidate-card {
+  cursor: pointer;
+  display: block;
+  border-radius: 22px;
+  border: 1.5px solid transparent;
+  background: linear-gradient(135deg, #fff, #f7f7f9);
+  transition: border 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  height: 100%;
+}
+
+.candidate-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(0, 113, 227, 0.5);
+  box-shadow: 0 15px 35px rgba(31, 41, 55, 0.15);
+}
+
+.btn-check:checked + .candidate-card {
+  border-color: #0071e3;
+  box-shadow: 0 18px 40px rgba(0, 113, 227, 0.25);
+  transform: scale(1.02);
+}
+
+.candidate-card h6 {
+  font-weight: 600;
+  color: #1d1d1f;
+}
+
+.candidate-card p {
+  color: #424245;
+}
+
+.ballot-title {
+  color: #1d1d1f;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.btn-theme {
+  border-radius: 999px;
+  padding-inline: 2.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  box-shadow: 0 15px 35px rgba(0, 113, 227, 0.35);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.btn-theme:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 20px 45px rgba(0, 113, 227, 0.45);
+}
+
+.nav-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #1d1d1f;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  color: #fff;
+  text-transform: uppercase;
+}

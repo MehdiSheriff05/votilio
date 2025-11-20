@@ -1,0 +1,98 @@
+{% extends 'admin/layout.html' %}
+{% block admin_content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2>Admin Accounts</h2>
+</div>
+
+<div class="card mb-4">
+  <div class="card-body">
+    <h5 class="card-title">Create New Admin</h5>
+    <form method="post" action="{{ url_for('admin.create_admin_user') }}" class="row g-3">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="col-md-4">
+        <label class="form-label">Username</label>
+        <input class="form-control" name="username" required>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Password</label>
+        <input type="password" class="form-control" name="password" required>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Role</label>
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" name="is_super_admin" id="is_super_admin">
+          <label class="form-check-label" for="is_super_admin">Grant super admin access</label>
+        </div>
+      </div>
+      <div class="col-md-3 d-flex align-items-end">
+        <button class="btn btn-primary w-100" type="submit">Create Admin</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body">
+    <h5 class="card-title">Existing Admins</h5>
+    <div class="table-responsive">
+      <table class="table align-middle">
+        <thead>
+          <tr>
+            <th>Username</th>
+            <th>Password Reset</th>
+            <th>Delete</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for admin in admins %}
+            <tr>
+              <td>
+                <form method="post" action="{{ url_for('admin.update_admin', admin_id=admin.id) }}" class="row gy-2 gx-2 align-items-center">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <div class="col-md-5">
+                    <input class="form-control" name="username" value="{{ admin.username }}" required>
+                  </div>
+                  <div class="col-md-4">
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" name="is_super_admin" id="is_super_admin_row_{{ admin.id }}" {{ 'checked' if admin.is_super_admin else '' }}>
+                      <label class="form-check-label" for="is_super_admin_row_{{ admin.id }}">Super admin</label>
+                    </div>
+                  </div>
+                  <div class="col-md-3">
+                    <button class="btn btn-outline-primary btn-sm" type="submit">Update</button>
+                  </div>
+                </form>
+              </td>
+              <td>
+                <form method="post" action="{{ url_for('admin.reset_admin_password', admin_id=admin.id) }}" class="row gy-2 gx-2 align-items-center">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <div class="col">
+                    <input type="password" class="form-control" name="password" placeholder="New password" required>
+                  </div>
+                  <div class="col-auto">
+                    <button class="btn btn-outline-primary" type="submit">Update</button>
+                  </div>
+                </form>
+              </td>
+              <td>
+                {% if session.get('admin_id') == admin.id %}
+                  <span class="badge bg-secondary">Current user</span>
+                {% else %}
+                  <form method="post" action="{{ url_for('admin.delete_admin', admin_id=admin.id) }}" onsubmit="return confirm('Delete this admin?');">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn-outline-danger btn-sm" type="submit">Delete</button>
+                  </form>
+                {% endif %}
+              </td>
+            </tr>
+          {% else %}
+            <tr>
+              <td colspan="3">No admins found.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

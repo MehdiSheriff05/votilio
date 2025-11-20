@@ -1,0 +1,51 @@
+{% extends 'admin/layout.html' %}
+{% block admin_content %}
+<h2>System SMTP Settings</h2>
+<p class="text-muted">These values apply to all outgoing invitation and reminder emails.</p>
+<form method="post" class="card card-body">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="row g-3">
+    <div class="col-md-6">
+      <label class="form-label">SMTP host</label>
+      <input class="form-control" name="smtp_host" value="{{ settings.smtp_host }}" required>
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">Port</label>
+      <input type="number" class="form-control" name="smtp_port" value="{{ settings.smtp_port }}" required>
+    </div>
+    <div class="col-md-4">
+      <label class="form-label">Sender address</label>
+      <input class="form-control" name="mail_sender" value="{{ settings.mail_sender }}" required>
+    </div>
+    <div class="col-md-4">
+      <label class="form-label">Username (optional)</label>
+      <input class="form-control" name="smtp_user" value="{{ settings.smtp_user or '' }}">
+    </div>
+    <div class="col-md-4">
+      <label class="form-label">Password (optional)</label>
+      <input type="password" class="form-control" name="smtp_password" value="{{ settings.smtp_password or '' }}">
+    </div>
+    <div class="col-12">
+      <label class="form-label">Invitation subject</label>
+      <input class="form-control" name="invite_subject" value="{{ settings.invite_subject }}" required>
+    </div>
+    <div class="col-12">
+      <label class="form-label">Invitation email body</label>
+      <textarea class="form-control" name="invite_body" rows="4" required>{{ settings.invite_body }}</textarea>
+      <div class="form-text">Available placeholders: {{ '{{ election_name }}' }}, {{ '{{ voting_key }}' }}, {{ '{{ vote_url }}' }}, {{ '{{ recipient }}' }}, {{ '{{ opening_time }}' }}, {{ '{{ closing_time }}' }}</div>
+    </div>
+    <div class="col-12">
+      <label class="form-label">Reminder subject</label>
+      <input class="form-control" name="reminder_subject" value="{{ settings.reminder_subject }}" required>
+    </div>
+    <div class="col-12">
+      <label class="form-label">Reminder email body</label>
+      <textarea class="form-control" name="reminder_body" rows="4" required>{{ settings.reminder_body }}</textarea>
+      <div class="form-text">Use the same placeholders as above.</div>
+    </div>
+  </div>
+  <div class="mt-3">
+    <button class="btn btn-primary" type="submit">Save Settings</button>
+  </div>
+</form>
+{% endblock %}

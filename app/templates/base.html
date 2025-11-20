@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Votilio</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/main.css') }}" rel="stylesheet">
+  </head>
+  <body>
+    <nav class="navbar navbar-expand-lg navbar-light">
+      <div class="container-fluid">
+        <a class="navbar-brand" href="{{ url_for('public.vote') }}">Votilio</a>
+        <div class="d-flex gap-3 align-items-center ms-auto">
+          {% if session.get('admin_id') %}
+            <div class="dropdown">
+              <a class="btn btn-outline-light dropdown-toggle d-flex align-items-center gap-2" href="#" role="button" id="adminMenu" data-bs-toggle="dropdown" aria-expanded="false">
+                <span class="nav-avatar">{{ session.get('admin_name', 'Admin')[0]|upper }}</span>
+                <span class="small">{{ session.get('admin_name', 'Admin') }}</span>
+              </a>
+              <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="adminMenu">
+                <li><a class="dropdown-item" href="{{ url_for('admin.dashboard') }}">Dashboard</a></li>
+                <li><a class="dropdown-item" href="{{ url_for('admin.audit_logs') }}">Audit Logs</a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item text-danger" href="{{ url_for('admin.logout') }}">Logout</a></li>
+              </ul>
+            </div>
+          {% else %}
+            <a class="btn btn-outline-light" href="{{ url_for('admin.login') }}">Admin Login</a>
+          {% endif %}
+        </div>
+      </div>
+    </nav>
+    <div class="container py-4">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, message in messages %}
+            <div class="alert alert-{{ category }}">{{ message }}</div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+      {% block content %}{% endblock %}
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  </body>
+</html>

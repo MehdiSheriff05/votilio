@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+{% block content %}
+{% set primary = election.theme_primary or '#0d6efd' %}
+{% set secondary = election.theme_secondary or '#6610f2' %}
+{% set accent = election.theme_accent or '#f0ad4e' %}
+<style>
+  .results-header {
+    border-left: 4px solid {{ primary }};
+    padding-left: 1rem;
+  }
+  .winner-row {
+    background-color: {{ accent }}20;
+  }
+  .badge-theme {
+    background-color: {{ secondary }};
+  }
+</style>
+<div class="results-header mb-4">
+  <h2>{{ election.name }} Results</h2>
+  <p class="text-muted mb-1">{{ election.description }}</p>
+  <small class="text-muted">Total voters: {{ totals.total }} &middot; Participated: {{ totals.voted }} &middot; Pending: {{ totals.not_voted }}</small>
+</div>
+{% for bucket in summary %}
+  <div class="card mb-4">
+    <div class="card-body">
+      <div class="d-flex justify-content-between align-items-center">
+        <div>
+          <h4 class="mb-0">{{ bucket.position.name }}</h4>
+          <small class="text-muted">{{ bucket.position.description }}</small>
+        </div>
+        {% if bucket.winners %}
+          <span class="badge badge-theme">Winner{{ 's' if bucket.winners|length > 1 else '' }}: {{ bucket.winners|map(attribute='name')|join(', ') }}</span>
+        {% else %}
+          <span class="badge bg-secondary">No votes yet</span>
+        {% endif %}
+      </div>
+      <div class="table-responsive mt-3">
+        <table class="table align-middle mb-0">
+          <thead>
+            <tr>
+              <th>Candidate</th>
+              <th class="text-end">Votes</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in bucket.candidates %}
+              <tr class="{{ 'winner-row' if row.candidate in bucket.winners else '' }}">
+                <td>{{ row.candidate.name }}</td>
+                <td class="text-end fw-bold">{{ row.count }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+{% endfor %}
+{% endblock %}

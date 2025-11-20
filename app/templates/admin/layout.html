@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="row">
+  <div class="col-lg-3 col-xl-2 mb-4">
+    <div class="list-group">
+      <a class="list-group-item list-group-item-action" href="{{ url_for('admin.dashboard') }}">Dashboard</a>
+      <a class="list-group-item list-group-item-action" href="{{ url_for('admin.create_election') }}">Create Election</a>
+      <a class="list-group-item list-group-item-action" href="{{ url_for('admin.audit_logs') }}">Audit Logs</a>
+      {% if session.get('is_super_admin') %}
+        <a class="list-group-item list-group-item-action" href="{{ url_for('admin.manage_admins') }}">Manage Admins</a>
+        <a class="list-group-item list-group-item-action" href="{{ url_for('admin.system_settings') }}">System Settings</a>
+      {% endif %}
+      <a class="list-group-item list-group-item-action text-danger" href="{{ url_for('admin.logout') }}">Logout</a>
+    </div>
+  </div>
+  <div class="col-lg-9 col-xl-10">
+    {% block admin_content %}{% endblock %}
+  </div>
+</div>
+{% endblock %}
