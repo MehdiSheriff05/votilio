@@ -39,10 +39,12 @@ body {
   cursor: pointer;
   display: block;
   border-radius: 22px;
-  border: 1.5px solid transparent;
+  border: 2px solid transparent;
   background: linear-gradient(135deg, #fff, #f7f7f9);
   transition: border 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
   height: 100%;
+  position: relative;
+  overflow: hidden;
 }
 
 .candidate-card:hover {
@@ -53,8 +55,10 @@ body {
 
 .btn-check:checked + .candidate-card {
   border-color: #0071e3;
+  border-width: 3px;
   box-shadow: 0 18px 40px rgba(0, 113, 227, 0.25);
   transform: scale(1.02);
+  z-index: 1;
 }
 
 .candidate-card h6 {
@@ -84,6 +88,17 @@ body {
 .btn-theme:hover {
   transform: translateY(-2px);
   box-shadow: 0 20px 45px rgba(0, 113, 227, 0.45);
+}
+
+.btn-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-size: 1rem;
 }
 
 .nav-avatar {

@@ -3,6 +3,7 @@ import re
 from datetime import datetime
 from email.utils import parseaddr
 from typing import Optional, Set
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from flask import (current_app, flash, redirect, render_template, request,
                    session, url_for)
@@ -13,7 +14,27 @@ from app.email_utils import generate_6_digit_code, send_email
 from app.models import (AdminUser, Candidate, Election, Position,
                         VoterInvitation, Vote, AuditLog, SystemSettings)
 from app.utils import (login_required, record_audit, super_admin_required,
-                       save_uploaded_image, render_email_template)
+                       save_uploaded_image, render_email_template, format_display_time,
+                       active_timezone_label)
+
+COMMON_TIMEZONES = [
+    "UTC",
+    "Europe/London",
+    "Europe/Berlin",
+    "Europe/Paris",
+    "Africa/Nairobi",
+    "Asia/Dubai",
+    "Asia/Kolkata",
+    "Asia/Singapore",
+    "Asia/Tokyo",
+    "Australia/Sydney",
+    "America/Toronto",
+    "America/New_York",
+    "America/Chicago",
+    "America/Denver",
+    "America/Los_Angeles",
+    "America/Sao_Paulo",
+]
 
 
 @admin_bp.route('/login', methods=['GET', 'POST'])
@@ -193,6 +214,13 @@ def system_settings():
         invite_body = request.form.get('invite_body', '').strip()
         reminder_subject = request.form.get('reminder_subject', '').strip()
         reminder_body = request.form.get('reminder_body', '').strip()
+        timezone_name = request.form.get('timezone_name', '').strip() or settings.timezone_name or 'UTC'
+
+        try:
+            ZoneInfo(timezone_name)
+        except ZoneInfoNotFoundError:
+            flash('Invalid timezone name. Use values such as America/New_York or Asia/Dubai.', 'danger')
+            return redirect(url_for('admin.system_settings'))
 
         settings.smtp_host = host or settings.smtp_host
         try:
@@ -206,6 +234,7 @@ def system_settings():
         settings.invite_body = invite_body or settings.invite_body
         settings.reminder_subject = reminder_subject or settings.reminder_subject
         settings.reminder_body = reminder_body or settings.reminder_body
+        settings.timezone_name = timezone_name
         db.session.add(settings)
         db.session.commit()
 
@@ -219,7 +248,7 @@ def system_settings():
         flash('Email settings updated.', 'success')
         return redirect(url_for('admin.system_settings'))
 
-    return render_template('admin/system_settings.html', settings=settings)
+    return render_template('admin/system_settings.html', settings=settings, timezone_options=COMMON_TIMEZONES)
 
 
 @admin_bp.route('/logs')
@@ -554,30 +583,7 @@ def manage_invitations(election_id):
     new_keys = None
     # grabbing the full list upfront keeps totals/actions accurate for every tab render
     all_invites = VoterInvitation.query.filter_by(election_id=election.id).order_by(VoterInvitation.id.desc()).all()
-    manual_key = None
-    if request.method == 'POST' and request.form.get('generate_unique_key'):
-        # quick one-off key generation with optional email capture
-        email = request.form.get('single_email', '').strip()
-        name = request.form.get('single_name', '').strip()
-        if email and VoterInvitation.query.filter_by(election_id=election.id, email=email).first():
-            flash('Email already has an invitation.', 'warning')
-        else:
-            invitation = VoterInvitation(
-                election_id=election.id,
-                email=email or None,
-                name=name or None,
-            )
-            new_key = _generate_unique_key(election)
-            invitation.set_key(new_key)
-            invitation.last_generated_key = new_key
-            db.session.add(invitation)
-            db.session.commit()
-            manual_key = {'email': email or 'N/A', 'name': name or 'N/A', 'key': new_key}
-            record_audit('invitation_generated', f'Manual key generated for {election.name}', election_id=election.id)
-            flash('Generated a unique key (copy it now).', 'success')
-            active_tab = 'identifiers'
-        all_invites = VoterInvitation.query.filter_by(election_id=election.id).order_by(VoterInvitation.id.desc()).all()
-    elif request.method == 'POST':
+    if request.method == 'POST':
         # bulk upload path
         raw_emails = request.form.get('emails', '')
         show_keys = request.form.get('show_keys') == 'on'
@@ -621,14 +627,13 @@ def manage_invitations(election_id):
             flash(f"Skipped {len(invalid_rows)} row(s) that did not look like valid email entries.", 'warning')
         if show_keys and display_keys:
             new_keys = display_keys
-            active_tab = 'identifiers'
+            active_tab = 'invitations'
         else:
             return redirect(request.url)
     stats = _invitation_stats(election)
     # invitee_breakdown keeps the dashboard cards on the management tab tidy
     invitee_breakdown = {
         'total': len(all_invites),
-        'named': sum(1 for inv in all_invites if inv.name),
         'used': sum(1 for inv in all_invites if inv.used),
         'pending': sum(1 for inv in all_invites if not inv.used),
     }
@@ -644,7 +649,7 @@ def manage_invitations(election_id):
         invitation_form=True,
         stats=stats,
         new_keys=new_keys,
-        manual_key=manual_key,
+        manual_key=None,
         invitations=all_invites,
         active_tab=active_tab,
         invitee_breakdown=invitee_breakdown,
@@ -662,7 +667,7 @@ def delete_invitation(invitation_id):
     db.session.commit()
     record_audit('invitation_deleted', f"Invitation {invitation.email or invitation.id} removed", election_id=election_id)
     flash('Invitation deleted. Generate a new key if needed.', 'info')
-    next_tab = request.form.get('next_tab') or 'identifiers'
+    next_tab = request.form.get('next_tab') or 'invitations'
     return redirect(url_for('admin.manage_invitations', election_id=election_id, tab=next_tab))
 
 
@@ -964,9 +969,9 @@ def _generate_results_slug(name: str) -> str:
 
 def _window_labels(election: Election):
     """Returns localized opening/closing labels so mails and UI stay consistent."""
-    tz_label = current_app.config.get("DISPLAY_TIMEZONE", "GMT+4")
-    opening = f"{election.start_time.strftime('%Y-%m-%d %H:%M')} ({tz_label})" if election.start_time else f"Not specified ({tz_label})"
-    closing = f"{election.end_time.strftime('%Y-%m-%d %H:%M')} ({tz_label})" if election.end_time else f"Not specified ({tz_label})"
+    tz_label = active_timezone_label()
+    opening = format_display_time(election.start_time, f"Not specified ({tz_label})", render_html=False)
+    closing = format_display_time(election.end_time, f"Not specified ({tz_label})", render_html=False)
     return opening, closing
 
 

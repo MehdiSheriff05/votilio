@@ -1,15 +1,19 @@
 import os
+import re
 import uuid
+from datetime import timedelta, timezone
 from functools import wraps
 from typing import Callable, Optional
 
 from flask import current_app, flash, redirect, session, url_for
 from jinja2 import Template
+from markupsafe import Markup, escape
 from PIL import Image
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from werkzeug.utils import secure_filename
 
 from app import db
-from app.models import AuditLog, AdminUser
+from app.models import AuditLog, AdminUser, SystemSettings
 
 
 def login_required(view_func: Callable):
@@ -117,10 +121,60 @@ def render_email_template(template_string: str, context: dict) -> str:
     return Template(template_string).render(**context)
 
 
-def format_display_time(dt, placeholder: str = "Not available") -> str:
+def active_timezone_label() -> str:
+    """Returns the current default timezone name (System Settings overrides config)."""
+    fallback = current_app.config.get("DISPLAY_TIMEZONE", "UTC")
+    try:
+        settings = SystemSettings.query.first()
+        if settings and settings.timezone_name:
+            return settings.timezone_name
+    except Exception:
+        # DB might not be initialized yet during early CLI usage.
+        pass
+    return fallback
+
+
+def _zoneinfo_for(label: str):
+    """Best effort loader that returns a ZoneInfo or timezone offset for labels."""
+    try:
+        return ZoneInfo(label)
+    except ZoneInfoNotFoundError:
+        offset = _timezone_offset_from_label(label)
+        if offset:
+            return timezone(offset)
+    except Exception:
+        return None
+    return None
+
+
+def _timezone_offset_from_label(label: str) -> timedelta:
+    """Parses GMT/UTC style offsets like GMT+4 or UTC-05:30."""
+    if not label:
+        return timedelta()
+    cleaned = label.strip().upper().replace('UTC', '').replace('GMT', '')
+    match = re.match(r'^([+-])\s*(\d{1,2})(?::(\d{2}))?$', cleaned)
+    if not match:
+        return timedelta()
+    sign = 1 if match.group(1) == '+' else -1
+    hours = int(match.group(2))
+    minutes = int(match.group(3)) if match.group(3) else 0
+    return timedelta(hours=sign * hours, minutes=sign * minutes)
+
+
+def format_display_time(dt, placeholder: str = "Not available", render_html: bool = True) -> str:
     """Human friendly label with configured timezone, or placeholder when dt missing."""
-    tz_label = current_app.config.get("DISPLAY_TIMEZONE", "GMT+4")
+    tz_label = active_timezone_label()
     if not dt:
-        return f"{placeholder}"
-    # we intentionally standardize format so tables across the app match
-    return f"{dt.strftime('%Y-%m-%d %H:%M')} ({tz_label})"
+        return placeholder if not render_html else escape(placeholder)
+    tzinfo = _zoneinfo_for(tz_label)
+    base_dt = dt
+    if dt.tzinfo is None:
+        base_dt = dt.replace(tzinfo=timezone.utc)
+    utc_dt = base_dt.astimezone(timezone.utc)
+    local_dt = utc_dt.astimezone(tzinfo) if tzinfo else utc_dt
+    rendered = f"{local_dt.strftime('%Y-%m-%d %H:%M')} ({tz_label})"
+    if not render_html:
+        return rendered
+    return Markup(
+        f'<span class="js-local-time" data-utc="{utc_dt.isoformat()}">{escape(rendered)}</span>'
+    )

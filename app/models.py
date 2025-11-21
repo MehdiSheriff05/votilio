@@ -152,6 +152,7 @@ class SystemSettings(db.Model):
     invite_body = db.Column(db.Text, nullable=False, default="You are invited to vote in '{{ election_name }}'.\n\nKey: {{ voting_key }}\nVote link: {{ vote_url }}\n")
     reminder_subject = db.Column(db.String(255), nullable=False, default="Reminder: vote in {{ election_name }}")
     reminder_body = db.Column(db.Text, nullable=False, default="Friendly reminder to vote in '{{ election_name }}'. Use key {{ voting_key }} at {{ vote_url }}.")
+    timezone_name = db.Column(db.String(128), nullable=False, default="UTC")
 
     @classmethod
     def get_or_create(cls, app=None):
@@ -171,6 +172,7 @@ class SystemSettings(db.Model):
             invite_body="You are invited to vote in '{{ election_name }}'.\n\nKey: {{ voting_key }}\nVote link: {{ vote_url }}\n",
             reminder_subject="Reminder: vote in {{ election_name }}",
             reminder_body="Friendly reminder to vote in '{{ election_name }}'. Use key {{ voting_key }} at {{ vote_url }}.",
+            timezone_name=app_obj.config.get("DISPLAY_TIMEZONE", "UTC"),
         )
         db.session.add(instance)
         db.session.commit()

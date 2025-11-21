@@ -22,11 +22,11 @@ def create_app(config_class: type = Config) -> Flask:
     db.init_app(app)
     migrate.init_app(app, db)
     csrf.init_app(app)
-    from app.utils import format_display_time
+    from app.utils import format_display_time, active_timezone_label
     app.jinja_env.filters['display_time'] = format_display_time
     @app.context_processor
     def inject_timezone():
-        return {"timezone_label": app.config.get("DISPLAY_TIMEZONE", "GMT+4")}
+        return {"timezone_label": active_timezone_label()}
 
     from app.admin.routes import admin_bp
     from app.public.routes import public_bp

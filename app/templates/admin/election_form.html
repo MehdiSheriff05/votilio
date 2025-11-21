@@ -6,9 +6,6 @@
         <a class="nav-link {{ 'active' if active_tab == 'invitations' else '' }}" href="{{ url_for('admin.manage_invitations', election_id=election.id, tab='invitations') }}">Queue Emails</a>
       </li>
       <li class="nav-item">
-        <a class="nav-link {{ 'active' if active_tab == 'identifiers' else '' }}" href="{{ url_for('admin.manage_invitations', election_id=election.id, tab='identifiers') }}">Unique Identifiers</a>
-      </li>
-      <li class="nav-item">
         <a class="nav-link {{ 'active' if active_tab == 'invitees' else '' }}" href="{{ url_for('admin.manage_invitations', election_id=election.id, tab='invitees') }}">Invitee Management</a>
       </li>
     </ul>
@@ -45,107 +42,31 @@
         <button class="btn btn-outline-secondary" type="submit">Send Reminders</button>
       </form>
     </div>
-    {% elif active_tab == 'identifiers' %}
-    <h2>Unique Identifiers - {{ election.name }}</h2>
-    <div class="row mt-3">
-      <div class="col-md-6">
-        <form method="post" class="card card-body">
-          <h5 class="card-title">Generate Single Key</h5>
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <input type="hidden" name="generate_unique_key" value="1">
-          <div class="mb-3">
-            <label class="form-label">Name (optional)</label>
-            <input class="form-control" name="single_name" placeholder="Ada Lovelace">
-          </div>
-          <div class="mb-3">
-            <label class="form-label">Email (optional)</label>
-            <input class="form-control" name="single_email" placeholder="user@example.com">
-            <div class="form-text">Leave blank to create a key without linking to an email.</div>
-          </div>
-          <button class="btn btn-outline-primary" type="submit">Generate Key</button>
-        </form>
-        {% if manual_key %}
-          <div class="alert alert-info mt-3">
-            Manual key generated for <strong>{{ manual_key.name }} ({{ manual_key.email }})</strong>: <code>{{ manual_key.key }}</code>
-          </div>
-        {% endif %}
-        {% if new_keys %}
-          <div class="alert alert-warning mt-3">
-            These keys are visible one time only. Copy or export them now if you plan to send them manually.
-          </div>
-          <div class="table-responsive">
-            <table class="table table-striped">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Email</th>
-                  <th>Voting key</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for row in new_keys %}
-                  <tr>
-                    <td>{{ row.name or 'N/A' }}</td>
-                    <td>{{ row.email or 'N/A' }}</td>
-                    <td><code>{{ row.key }}</code></td>
-                  </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-        {% endif %}
-      </div>
-    </div>
-    <div class="mt-4">
-      <div class="d-flex justify-content-between align-items-center">
-        <h5 class="mb-0">Existing Keys</h5>
-        <small class="text-muted">Timestamps shown in {{ timezone_label }}</small>
+    {% if new_keys %}
+      <div class="alert alert-warning mt-4">
+        These keys are visible one time only. Copy or export them now if you plan to send them manually.
       </div>
       <div class="table-responsive">
-        <table class="table table-hover align-middle">
+        <table class="table table-striped">
           <thead>
             <tr>
-              <th>Identifier</th>
               <th>Name</th>
               <th>Email</th>
-              <th>Sent</th>
-              <th>Used at</th>
-              <th>Status</th>
-              <th>Actions</th>
+              <th>Voting key</th>
             </tr>
           </thead>
           <tbody>
-            {% for invite in invitations %}
+            {% for row in new_keys %}
               <tr>
-                <td><code>{{ invite.last_generated_key or 'Unavailable' }}</code></td>
-                <td>{{ invite.name or 'N/A' }}</td>
-                <td>{{ invite.email or 'N/A' }}</td>
-                <td>{{ invite.sent_at|display_time('Not sent') }}</td>
-                <td>{{ invite.used_at|display_time('Not used yet') }}</td>
-                <td>
-                  {% if invite.used %}
-                    <span class="badge bg-success">Used</span>
-                  {% else %}
-                    <span class="badge bg-secondary">Pending</span>
-                  {% endif %}
-                </td>
-                <td>
-                  <form method="post" action="{{ url_for('admin.delete_invitation', invitation_id=invite.id) }}" onsubmit="return confirm('Delete this key? Users with this identifier will no longer be able to vote.');">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <input type="hidden" name="next_tab" value="identifiers">
-                    <button class="btn btn-outline-danger btn-sm" type="submit">Delete</button>
-                  </form>
-                </td>
-              </tr>
-            {% else %}
-              <tr>
-                <td colspan="7">No invitations created yet.</td>
+                <td>{{ row.name or 'N/A' }}</td>
+                <td>{{ row.email or 'N/A' }}</td>
+                <td><code>{{ row.key }}</code></td>
               </tr>
             {% endfor %}
           </tbody>
         </table>
       </div>
-    </div>
+    {% endif %}
     {% else %}
     <div class="d-flex justify-content-between flex-wrap align-items-start">
       <div>
@@ -160,7 +81,7 @@
       </form>
     </div>
     <div class="row g-3 mb-3">
-      <div class="col-md-3">
+      <div class="col-md-4">
         <div class="card text-center h-100">
           <div class="card-body">
             <div class="text-muted small">Total invitees</div>
@@ -168,15 +89,7 @@
           </div>
         </div>
       </div>
-      <div class="col-md-3">
-        <div class="card text-center h-100">
-          <div class="card-body">
-            <div class="text-muted small">Named invites</div>
-            <div class="display-6">{{ invitee_breakdown.named }}</div>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-3">
+      <div class="col-md-4">
         <div class="card text-center h-100">
           <div class="card-body">
             <div class="text-muted small">Awaiting votes</div>
@@ -184,7 +97,7 @@
           </div>
         </div>
       </div>
-      <div class="col-md-3">
+      <div class="col-md-4">
         <div class="card text-center h-100">
           <div class="card-body">
             <div class="text-muted small">Completed ballots</div>
@@ -220,7 +133,7 @@
         </form>
       </div>
     </div>
-    <small class="text-muted d-block mb-2">Timestamps shown in {{ timezone_label }}</small>
+    <small class="text-muted d-block mb-2">Timestamps shown in <span data-timezone-display>{{ timezone_label }}</span></small>
     <div class="table-responsive">
       <table class="table table-hover align-middle">
         <thead>
@@ -264,10 +177,37 @@
                   <span class="badge bg-warning text-dark">Not voted</span>
                 {% endif %}
               </td>
-              <td style="min-width: 260px;">
-                <details>
-                  <summary class="btn btn-link btn-sm p-0">Edit contact</summary>
-                  <div class="border rounded p-2 mt-2 bg-light">
+              <td class="text-center">
+                <div class="d-inline-flex flex-wrap gap-2 align-items-center justify-content-center">
+                  <button class="btn btn-outline-secondary btn-icon" type="button" data-bs-toggle="collapse" data-bs-target="#edit-{{ invite.id }}" aria-expanded="false" aria-controls="edit-{{ invite.id }}" title="Edit contact">
+                    <i class="bi bi-pencil"></i>
+                  </button>
+                  <form method="post" action="{{ url_for('admin.send_single_invitation', invitation_id=invite.id) }}" class="d-inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="next_tab" value="invitees">
+                    {% set invite_label = 'Resend invite' if invite.sent_at else 'Send invite' %}
+                    <button class="btn btn-outline-primary btn-icon" type="submit" title="{{ invite_label }}" {% if not invite.email %}disabled{% endif %}>
+                      <i class="bi bi-envelope"></i>
+                    </button>
+                  </form>
+                  <form method="post" action="{{ url_for('admin.send_single_reminder', invitation_id=invite.id) }}" class="d-inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="next_tab" value="invitees">
+                    {% set reminder_label = 'Resend reminder' if invite.reminder_sent_at else 'Send reminder' %}
+                    <button class="btn btn-outline-secondary btn-icon" type="submit" title="{{ reminder_label }}" {% if not invite.email or invite.used or not invite.sent_at %}disabled{% endif %}>
+                      <i class="bi bi-bell"></i>
+                    </button>
+                  </form>
+                  <form method="post" action="{{ url_for('admin.delete_invitation', invitation_id=invite.id) }}" class="d-inline" onsubmit="return confirm('Delete this invitation? The key will be revoked.');">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="next_tab" value="invitees">
+                    <button class="btn btn-outline-danger btn-icon" type="submit" title="Delete invite">
+                      <i class="bi bi-trash"></i>
+                    </button>
+                  </form>
+                </div>
+                <div class="collapse mt-2" id="edit-{{ invite.id }}">
+                  <div class="border rounded p-2 bg-light">
                     <form method="post" action="{{ url_for('admin.update_invitation', invitation_id=invite.id) }}">
                       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                       <input type="hidden" name="next_tab" value="invitees">
@@ -280,28 +220,7 @@
                       <button class="btn btn-primary btn-sm" type="submit">Save</button>
                     </form>
                   </div>
-                </details>
-                <div class="d-flex flex-column gap-2 mt-2">
-                  <form method="post" action="{{ url_for('admin.send_single_invitation', invitation_id=invite.id) }}">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <input type="hidden" name="next_tab" value="invitees">
-                    <button class="btn btn-outline-primary btn-sm w-100" type="submit" {% if not invite.email %}disabled{% endif %}>
-                      {% if invite.sent_at %}Resend invite{% else %}Send invite{% endif %}
-                    </button>
-                  </form>
-                  <form method="post" action="{{ url_for('admin.send_single_reminder', invitation_id=invite.id) }}">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <input type="hidden" name="next_tab" value="invitees">
-                    <button class="btn btn-outline-secondary btn-sm w-100" type="submit" {% if not invite.email or invite.used or not invite.sent_at %}disabled{% endif %}>
-                      Send reminder
-                    </button>
-                  </form>
                 </div>
-                <form method="post" class="mt-2" action="{{ url_for('admin.delete_invitation', invitation_id=invite.id) }}" onsubmit="return confirm('Delete this invitation? The key will be revoked.');">
-                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                  <input type="hidden" name="next_tab" value="invitees">
-                  <button class="btn btn-outline-danger btn-sm w-100" type="submit">Delete</button>
-                </form>
               </td>
             </tr>
           {% else %}

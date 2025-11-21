@@ -25,7 +25,7 @@ Votilio is a Flask application for running online elections with anonymous ballo
    export FLASK_ENV=development
    ```
    - If you prefer SQLite locally, override `DATABASE_URL=sqlite:///votilio.db` in `.env`.
-   
+
 3. **Run the migrations**
    ```bash
    flask db upgrade
@@ -60,8 +60,7 @@ Votilio is a Flask application for running online elections with anonymous ballo
    docker-compose exec web flask shell
    ```
 
-The Flask app listens on `http://localhost:8000` and Postgres on `localhost:5432` (helpful for local inspection or Cloudflare Tunnel/nginx fronting).
-
+The Flask app listens on `http://localhost:8000` and Postgres on `localhost:5432` 
 ## Tests
 An example pytest lives in `tests/` to illustrate key generation expectations. Run with:
 ```bash
