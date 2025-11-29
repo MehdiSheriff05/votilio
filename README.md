@@ -46,21 +46,82 @@ Votilio is a Flask application for running online elections with anonymous ballo
    ```
 
 ## Running with Docker
-1. Copy environment template and adjust values:
+1. **Ensure Docker Engine + Compose plugin are installed**
+   - macOS/Windows: install Docker Desktop.
+   - Linux (Ubuntu example):
+     ```bash
+     sudo apt update && sudo apt install -y ca-certificates curl gnupg
+     curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker.gpg
+     echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list
+     sudo apt update
+     sudo apt install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+     sudo usermod -aG docker $USER && newgrp docker
+     ```
+2. **Copy environment template and adjust values**
    ```bash
    cp .env.example .env
    ```
-2. Build and start the stack:
+   Set `FLASK_SECRET_KEY`, SMTP credentials, etc. The default `DATABASE_URL` already points to the bundled Postgres container.
+3. **Build and start the stack**
    ```bash
-   docker-compose up --build
+   docker compose up --build -d
    ```
-   The web container waits for Postgres, runs `flask db upgrade`, then launches Gunicorn automatically.
-3. Create the initial admin user:
+   (Use `docker-compose` if your CLI doesn’t support the space-separated syntax.) The entrypoint waits for Postgres, applies migrations, then starts Gunicorn.
+4. **Create the initial admin user**
    ```bash
-   docker-compose exec web flask shell
+   docker compose exec web flask shell
+   >>> from app import db
+   >>> from app.models import AdminUser
+   >>> admin = AdminUser(username="admin")
+   >>> admin.set_password("change-me")
+   >>> db.session.add(admin)
+   >>> db.session.commit()
+   >>> exit()
    ```
 
-The Flask app listens on `http://localhost:8000` and Postgres on `localhost:5432` 
+The Flask app listens on `http://localhost:8000` and Postgres on `localhost:5432`.
+
+## Deploying with Docker on a VPS
+1. **Provision & secure your server**
+   - Create a non-root sudo user, add your SSH public key, disable root/password SSH.
+   - Update packages and enable a firewall (Ubuntu example):
+     ```bash
+     sudo apt update && sudo apt upgrade -y
+     sudo apt install -y ufw
+     sudo ufw allow OpenSSH
+     sudo ufw allow http
+     sudo ufw allow https
+     sudo ufw enable
+     ```
+2. **Install Docker + compose plugin** (same commands as in the local section).
+3. **Clone the repo & configure environment**
+   ```bash
+   git clone https://github.com/MehdiSheriff05/votilio.git
+   cd votilio
+   cp .env.example .env
+   nano .env  # set FLASK_SECRET_KEY, SMTP settings (or configure later via GUI)
+   ```
+4. **Configure nginx + HTTPS**
+   - Install nginx + certbot: `sudo apt install -y nginx certbot python3-certbot-nginx`
+   - Create `/etc/nginx/sites-available/votilio` proxying to `http://127.0.0.1:8000`, enable it, test, then obtain certificates: `sudo certbot --nginx -d yourdomain.com -d www.yourdomain.com`.
+5. **Build and run the stack**
+   ```bash
+   docker compose up --build -d
+   ```
+6. **Seed the first admin**
+   ```bash
+   docker compose exec web flask shell
+   >>> from app import db
+   >>> from app.models import AdminUser
+   >>> admin = AdminUser(username="admin")
+   >>> admin.set_password("change-me")
+   >>> db.session.add(admin); db.session.commit()
+   >>> exit()
+   ```
+7. **Test & maintain**
+   - Visit `https://yourdomain.com` and `/admin` to verify.
+   - For updates: `git pull`, `docker compose build`, `docker compose up -d`, then `docker compose exec web flask db upgrade`.
+   - Back up Postgres regularly (`docker compose exec db pg_dump -U postgres votilio > backup.sql`).
 ## Tests
 An example pytest lives in `tests/` to illustrate key generation expectations. Run with:
 ```bash
