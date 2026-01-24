@@ -29,7 +29,7 @@ def upgrade():
     )
 
     with op.batch_alter_table('admin_user', schema=None) as batch_op:
-        batch_op.add_column(sa.Column('is_super_admin', sa.Boolean(), nullable=True, server_default=sa.text('0')))
+        batch_op.add_column(sa.Column('is_super_admin', sa.Boolean(), nullable=True, server_default=sa.text('false')))
 
     bind = op.get_bind()
     rows = bind.execute(sa.select(admin_table.c.id)).fetchall()
