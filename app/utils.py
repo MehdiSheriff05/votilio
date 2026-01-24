@@ -20,7 +20,14 @@ def login_required(view_func: Callable):
     """Decorator that makes sure the admin session exists before continuing."""
     @wraps(view_func)
     def wrapped(*args, **kwargs):
-        if not session.get("admin_id"):
+        admin_id = session.get("admin_id")
+        if not admin_id:
+            flash("Please log in to continue.", "warning")
+            return redirect(url_for("admin.login"))
+        if not AdminUser.query.get(admin_id):
+            session.pop("admin_id", None)
+            session.pop("is_super_admin", None)
+            session.pop("admin_name", None)
             flash("Please log in to continue.", "warning")
             return redirect(url_for("admin.login"))
         return view_func(*args, **kwargs)
@@ -55,6 +62,8 @@ def record_audit(event_type: str, message: str, admin_id: Optional[int] = None,
     """Persists a new audit entry while defaulting admin_id from the session."""
     if admin_id is None:
         admin_id = current_admin_id()
+    if admin_id and not AdminUser.query.get(admin_id):
+        admin_id = None
     log = AuditLog(
         event_type=event_type,
         message=message,
