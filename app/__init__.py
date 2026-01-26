@@ -1,4 +1,5 @@
 from flask import Flask
+from sqlalchemy.exc import SQLAlchemyError, OperationalError
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_wtf import CSRFProtect
@@ -33,6 +34,22 @@ def create_app(config_class: type = Config) -> Flask:
 
     app.register_blueprint(public_bp)
     app.register_blueprint(admin_bp, url_prefix="/admin")
+
+    @app.teardown_request
+    def cleanup_db_session(exception=None):
+        if exception:
+            db.session.rollback()
+        db.session.remove()
+
+    @app.errorhandler(OperationalError)
+    def handle_db_operational_error(error):
+        app.logger.error("Database operational error: %s", error, exc_info=True)
+        return "Database connection error. Please retry.", 500
+
+    @app.errorhandler(SQLAlchemyError)
+    def handle_db_error(error):
+        app.logger.error("Database error: %s", error, exc_info=True)
+        return "Database error. Please retry.", 500
 
     @app.shell_context_processor
     def make_shell_context():

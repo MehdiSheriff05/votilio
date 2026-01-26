@@ -11,6 +11,19 @@ class Config:
         "postgresql+psycopg2://postgres:postgres@db:5432/votilio",
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        "pool_pre_ping": True,
+        "pool_recycle": int(os.environ.get("DB_POOL_RECYCLE", 1800)),
+        "pool_size": int(os.environ.get("DB_POOL_SIZE", 5)),
+        "max_overflow": int(os.environ.get("DB_POOL_MAX_OVERFLOW", 10)),
+        "pool_timeout": int(os.environ.get("DB_POOL_TIMEOUT", 30)),
+        "connect_args": {
+            "keepalives": 1,
+            "keepalives_idle": int(os.environ.get("DB_KEEPALIVE_IDLE", 30)),
+            "keepalives_interval": int(os.environ.get("DB_KEEPALIVE_INTERVAL", 10)),
+            "keepalives_count": int(os.environ.get("DB_KEEPALIVE_COUNT", 5)),
+        },
+    }
     SESSION_COOKIE_HTTPONLY = True
     REMEMBER_COOKIE_DURATION = timedelta(days=7)
     SMTP_HOST = os.environ.get("SMTP_HOST", "localhost")
