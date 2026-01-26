@@ -18,6 +18,7 @@ def send_email(recipients: Iterable[str], subject: str, body: str) -> None:
     username = settings.smtp_user or current_app.config.get("SMTP_USER")
     password = settings.smtp_password or current_app.config.get("SMTP_PASSWORD")
     sender = settings.mail_sender or current_app.config.get("MAIL_SENDER")
+    use_tls = current_app.config.get("SMTP_USE_TLS", True)
 
     message = MIMEText(body)
     message["Subject"] = subject
@@ -25,9 +26,12 @@ def send_email(recipients: Iterable[str], subject: str, body: str) -> None:
     message["To"] = ", ".join(recipients)
 
     try:
-        with smtplib.SMTP(host, port) as server:
-            if username and password:
+        with smtplib.SMTP(host, port, timeout=10) as server:
+            server.ehlo()
+            if use_tls:
                 server.starttls()
+                server.ehlo()
+            if username and password:
                 server.login(username, password)
             server.sendmail(sender, recipients, message.as_string())
     except Exception as exc:  # pragma: no cover - starter logging only
