@@ -48,7 +48,7 @@
                   {% set candidate_image = url_for('static', filename='img/candidate-placeholder.svg') %}
                 {% endif %}
                 <div class="ratio ratio-5x4 mb-3">
-                  <img src="{{ candidate_image }}" class="candidate-photo" alt="{{ candidate.name }}">
+                  <img src="{{ candidate_image }}" class="candidate-photo" alt="{{ candidate.name }}" loading="lazy" decoding="async">
                 </div>
                 <div class="px-3 pb-3 d-flex flex-column h-100">
                   <h6 class="mb-1">{{ candidate.name }}</h6>

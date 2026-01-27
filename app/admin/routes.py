@@ -421,12 +421,12 @@ def create_position(election_id):
         next_url = request.form.get('next') or request.args.get('next')
         name = request.form.get('name', '').strip()
         description = request.form.get('description', '').strip()
-        max_sel = request.form.get('candidate_slots', '1').strip()
+        max_sel = request.form.get('candidate_slots')
         if not name:
             flash('Name is required.', 'danger')
             return redirect(next_url or request.url)
         try:
-            candidate_slots = max(1, int(max_sel))
+            candidate_slots = max(1, int(max_sel)) if max_sel is not None else 1
         except ValueError:
             candidate_slots = 1
         position = Position(
@@ -454,8 +454,8 @@ def create_candidate(position_id):
         next_url = request.form.get('next') or request.args.get('next')
         current_total = len(position.candidates)
         if current_total >= position.candidate_slots:
-            flash('This position already has the maximum number of candidates.', 'warning')
-            return redirect(next_url or url_for('admin.edit_election', election_id=position.election_id))
+            position.candidate_slots = current_total + 1
+            db.session.add(position)
         name = request.form.get('name', '').strip()
         description = request.form.get('description', '').strip()
         photo_file = request.files.get('photo')
@@ -485,17 +485,18 @@ def update_position(position_id):
     next_url = request.form.get('next')
     name = request.form.get('name', '').strip()
     description = request.form.get('description', '').strip()
-    max_sel = request.form.get('candidate_slots', '1').strip()
+    max_sel = request.form.get('candidate_slots')
     if not name:
         flash('Name is required.', 'danger')
         return redirect(next_url or url_for('admin.edit_election', election_id=position.election_id))
-    try:
-        candidate_slots = max(1, int(max_sel))
-    except ValueError:
-        candidate_slots = 1
+    if max_sel is not None:
+        try:
+            candidate_slots = max(1, int(max_sel))
+        except ValueError:
+            candidate_slots = 1
+        position.candidate_slots = candidate_slots
     position.name = name
     position.description = description
-    position.candidate_slots = candidate_slots
     db.session.add(position)
     db.session.commit()
     # record that the position changed

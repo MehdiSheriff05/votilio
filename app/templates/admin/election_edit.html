@@ -83,10 +83,6 @@
           <label class="form-label">Position name</label>
           <input class="form-control" name="name" placeholder="e.g. President" required>
         </div>
-        <div class="col-md-4">
-          <label class="form-label">Number of candidates</label>
-          <input type="number" min="1" class="form-control" name="candidate_slots" value="1" required>
-        </div>
         <div class="col-12">
           <label class="form-label">Description</label>
           <textarea class="form-control" name="description" rows="2" placeholder="Describe the role"></textarea>
@@ -103,12 +99,11 @@
 {% if positions %}
   {% for position in positions %}
     {% set total_candidates = position.candidates|length %}
-    {% set capacity = position.candidate_slots %}
     <div class="card mb-4">
       <div class="card-body">
         <div class="d-flex justify-content-between align-items-center mb-3">
           <h5 class="mb-0">{{ position.name }}</h5>
-          <span class="badge {{ 'bg-success' if total_candidates < capacity else 'bg-secondary' }}">{{ total_candidates }} / {{ capacity }} candidates</span>
+          <span class="badge bg-secondary">{{ total_candidates }} candidate{{ 's' if total_candidates != 1 else '' }}</span>
         </div>
         <form method="post" action="{{ url_for('admin.update_position', position_id=position.id) }}">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -117,10 +112,6 @@
             <div class="col-md-4">
               <label class="form-label">Position name</label>
               <input class="form-control" name="name" value="{{ position.name }}" required>
-            </div>
-            <div class="col-md-2">
-              <label class="form-label">Number of candidates</label>
-              <input type="number" min="1" class="form-control" name="candidate_slots" value="{{ position.candidate_slots }}" required>
             </div>
             <div class="col-md-6">
               <label class="form-label">Description</label>
@@ -159,7 +150,7 @@
                   {% set candidate_image = url_for('static', filename='img/candidate-placeholder.svg') %}
                 {% endif %}
                 <div class="ratio ratio-5x4">
-                  <img src="{{ candidate_image }}" class="candidate-photo" alt="{{ candidate.name }}">
+                  <img src="{{ candidate_image }}" class="candidate-photo" alt="{{ candidate.name }}" loading="lazy" decoding="async">
                 </div>
                 <div class="card-body">
                   <form method="post" action="{{ url_for('admin.update_candidate', candidate_id=candidate.id) }}" enctype="multipart/form-data">
@@ -194,31 +185,25 @@
         </div>
         <div class="border-top pt-3">
           <h6>Add Candidate</h6>
-          {% if total_candidates < capacity %}
-            <form method="post" action="{{ url_for('admin.create_candidate', position_id=position.id) }}" enctype="multipart/form-data" class="row g-3">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-              <input type="hidden" name="next" value="{{ url_for('admin.edit_election', election_id=election.id) }}">
-              <div class="col-md-4">
-                <label class="form-label">Name</label>
-                <input class="form-control" name="name" required>
-              </div>
-              <div class="col-md-5">
-                <label class="form-label">Bio / details</label>
-                <input class="form-control" name="description">
-              </div>
-              <div class="col-md-3">
-                <label class="form-label">Photo</label>
-                <input type="file" class="form-control" name="photo" accept="image/*">
-              </div>
-              <div class="col-12">
-                <button class="btn btn-outline-success btn-sm" type="submit">Add Candidate</button>
-              </div>
-            </form>
-          {% else %}
-            <div class="alert alert-warning mb-0">
-              All candidate slots are filled. Increase the number of candidates to add more entries.
+          <form method="post" action="{{ url_for('admin.create_candidate', position_id=position.id) }}" enctype="multipart/form-data" class="row g-3">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="next" value="{{ url_for('admin.edit_election', election_id=election.id) }}">
+            <div class="col-md-4">
+              <label class="form-label">Name</label>
+              <input class="form-control" name="name" required>
             </div>
-          {% endif %}
+            <div class="col-md-5">
+              <label class="form-label">Bio / details</label>
+              <input class="form-control" name="description">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Photo</label>
+              <input type="file" class="form-control" name="photo" accept="image/*">
+            </div>
+            <div class="col-12">
+              <button class="btn btn-outline-success btn-sm" type="submit">Add Candidate</button>
+            </div>
+          </form>
         </div>
       </div>
     </div>

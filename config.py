@@ -38,6 +38,7 @@ class Config:
     IMAGE_MAX_WIDTH = int(os.environ.get("IMAGE_MAX_WIDTH", 800))
     IMAGE_QUALITY = int(os.environ.get("IMAGE_QUALITY", 80))
     IMAGE_MAX_BYTES = int(os.environ.get("IMAGE_MAX_BYTES", 100 * 1024))
+    SEND_EMAIL_ASYNC = os.environ.get("SEND_EMAIL_ASYNC", "true").lower() == "true"
     DISPLAY_TIMEZONE = os.environ.get("DISPLAY_TIMEZONE", "GMT+4")
     USE_PROXY_FIX = os.environ.get("USE_PROXY_FIX", "true").lower() == "true"
 

@@ -1,66 +1,96 @@
 {% extends 'admin/layout.html' %}
 {% block admin_content %}
-<h2>System SMTP Settings</h2>
-<p class="text-muted">These values apply to all outgoing invitation and reminder emails.</p>
-<form method="post" class="card card-body">
+<h2>SMTP Settings</h2>
+<p class="text-muted">Configure email delivery and templates for invitations, reminders, and results.</p>
+<form method="post" class="card card-body" autocomplete="off">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-  <div class="row g-3">
-    <div class="col-md-6">
-      <label class="form-label">SMTP host</label>
-      <input class="form-control" name="smtp_host" value="{{ settings.smtp_host }}" required>
+  <ul class="nav nav-tabs" id="smtpSettingsTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+      <button class="nav-link active" id="smtp-config-tab" data-bs-toggle="tab" data-bs-target="#smtp-config" type="button" role="tab" aria-controls="smtp-config" aria-selected="true">SMTP Config</button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="invite-template-tab" data-bs-toggle="tab" data-bs-target="#invite-template" type="button" role="tab" aria-controls="invite-template" aria-selected="false">Invitation Template</button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="reminder-template-tab" data-bs-toggle="tab" data-bs-target="#reminder-template" type="button" role="tab" aria-controls="reminder-template" aria-selected="false">Reminder Template</button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="results-template-tab" data-bs-toggle="tab" data-bs-target="#results-template" type="button" role="tab" aria-controls="results-template" aria-selected="false">Results Template</button>
+    </li>
+  </ul>
+  <div class="tab-content pt-3">
+    <div class="tab-pane fade show active" id="smtp-config" role="tabpanel" aria-labelledby="smtp-config-tab">
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label">SMTP host</label>
+          <input class="form-control" name="smtp_host" value="{{ settings.smtp_host }}" required autocomplete="off">
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">Port</label>
+          <input type="number" class="form-control" name="smtp_port" value="{{ settings.smtp_port }}" required autocomplete="off">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Sender address</label>
+          <input class="form-control" name="mail_sender" value="{{ settings.mail_sender }}" required autocomplete="off">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Default timezone</label>
+          <input class="form-control" name="timezone_name" list="timezone-options" value="{{ settings.timezone_name or timezone_label }}" placeholder="e.g. America/New_York" required autocomplete="off">
+          <datalist id="timezone-options">
+            {% for zone in timezone_options %}
+              <option value="{{ zone }}"></option>
+            {% endfor %}
+          </datalist>
+          <div class="form-text">Use an IANA timezone like <code>America/New_York</code> or <code>Asia/Dubai</code>. This becomes the fallback when we cannot detect a viewer's local timezone.</div>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Username</label>
+          <input class="form-control" name="smtp_user" value="{{ settings.smtp_user or '' }}" autocomplete="off">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Password</label>
+          <input type="password" class="form-control" name="smtp_password" value="{{ settings.smtp_password or '' }}" autocomplete="new-password">
+        </div>
+      </div>
     </div>
-    <div class="col-md-2">
-      <label class="form-label">Port</label>
-      <input type="number" class="form-control" name="smtp_port" value="{{ settings.smtp_port }}" required>
+    <div class="tab-pane fade" id="invite-template" role="tabpanel" aria-labelledby="invite-template-tab">
+      <div class="row g-3">
+        <div class="col-12">
+          <label class="form-label">Invitation subject</label>
+          <input class="form-control" name="invite_subject" value="{{ settings.invite_subject }}" required>
+        </div>
+        <div class="col-12">
+          <label class="form-label">Invitation email body</label>
+          <textarea class="form-control" name="invite_body" rows="6" required>{{ settings.invite_body }}</textarea>
+          <div class="form-text">Available placeholders: {{ '{{ election_name }}' }}, {{ '{{ election_code }}' }}, {{ '{{ unique_identifier }}' }}, {{ '{{ voting_key }}' }}, {{ '{{ vote_url }}' }}, {{ '{{ results_url }}' }}, {{ '{{ recipient }}' }}, {{ '{{ recipient_email }}' }}, {{ '{{ opening_time }}' }}, {{ '{{ closing_time }}' }}</div>
+        </div>
+      </div>
     </div>
-    <div class="col-md-4">
-      <label class="form-label">Sender address</label>
-      <input class="form-control" name="mail_sender" value="{{ settings.mail_sender }}" required>
+    <div class="tab-pane fade" id="reminder-template" role="tabpanel" aria-labelledby="reminder-template-tab">
+      <div class="row g-3">
+        <div class="col-12">
+          <label class="form-label">Reminder subject</label>
+          <input class="form-control" name="reminder_subject" value="{{ settings.reminder_subject }}" required>
+        </div>
+        <div class="col-12">
+          <label class="form-label">Reminder email body</label>
+          <textarea class="form-control" name="reminder_body" rows="6" required>{{ settings.reminder_body }}</textarea>
+          <div class="form-text">Use the same placeholders as above.</div>
+        </div>
+      </div>
     </div>
-    <div class="col-md-4">
-      <label class="form-label">Default timezone</label>
-      <input class="form-control" name="timezone_name" list="timezone-options" value="{{ settings.timezone_name or timezone_label }}" placeholder="e.g. America/New_York" required>
-      <datalist id="timezone-options">
-        {% for zone in timezone_options %}
-          <option value="{{ zone }}"></option>
-        {% endfor %}
-      </datalist>
-      <div class="form-text">Use an IANA timezone like <code>America/New_York</code> or <code>Asia/Dubai</code>. This becomes the fallback when we cannot detect a viewer's local timezone.</div>
-    </div>
-    <div class="col-md-4">
-      <label class="form-label">Username (optional)</label>
-      <input class="form-control" name="smtp_user" value="{{ settings.smtp_user or '' }}">
-    </div>
-    <div class="col-md-4">
-      <label class="form-label">Password (optional)</label>
-      <input type="password" class="form-control" name="smtp_password" value="{{ settings.smtp_password or '' }}">
-    </div>
-    <div class="col-12">
-      <label class="form-label">Invitation subject</label>
-      <input class="form-control" name="invite_subject" value="{{ settings.invite_subject }}" required>
-    </div>
-    <div class="col-12">
-      <label class="form-label">Invitation email body</label>
-      <textarea class="form-control" name="invite_body" rows="4" required>{{ settings.invite_body }}</textarea>
-      <div class="form-text">Available placeholders: {{ '{{ election_name }}' }}, {{ '{{ election_code }}' }}, {{ '{{ unique_identifier }}' }}, {{ '{{ voting_key }}' }}, {{ '{{ vote_url }}' }}, {{ '{{ results_url }}' }}, {{ '{{ recipient }}' }}, {{ '{{ recipient_email }}' }}, {{ '{{ opening_time }}' }}, {{ '{{ closing_time }}' }}</div>
-    </div>
-    <div class="col-12">
-      <label class="form-label">Reminder subject</label>
-      <input class="form-control" name="reminder_subject" value="{{ settings.reminder_subject }}" required>
-    </div>
-    <div class="col-12">
-      <label class="form-label">Reminder email body</label>
-      <textarea class="form-control" name="reminder_body" rows="4" required>{{ settings.reminder_body }}</textarea>
-      <div class="form-text">Use the same placeholders as above.</div>
-    </div>
-    <div class="col-12">
-      <label class="form-label">Results subject</label>
-      <input class="form-control" name="results_subject" value="{{ settings.results_subject }}" required>
-    </div>
-    <div class="col-12">
-      <label class="form-label">Results email body</label>
-      <textarea class="form-control" name="results_body" rows="4" required>{{ settings.results_body }}</textarea>
-      <div class="form-text">Use the same placeholders as above. Results emails should include {{ '{{ results_url }}' }}.</div>
+    <div class="tab-pane fade" id="results-template" role="tabpanel" aria-labelledby="results-template-tab">
+      <div class="row g-3">
+        <div class="col-12">
+          <label class="form-label">Results subject</label>
+          <input class="form-control" name="results_subject" value="{{ settings.results_subject }}" required>
+        </div>
+        <div class="col-12">
+          <label class="form-label">Results email body</label>
+          <textarea class="form-control" name="results_body" rows="6" required>{{ settings.results_body }}</textarea>
+          <div class="form-text">Use the same placeholders as above. Results emails should include {{ '{{ results_url }}' }}.</div>
+        </div>
+      </div>
     </div>
   </div>
   <div class="mt-3">

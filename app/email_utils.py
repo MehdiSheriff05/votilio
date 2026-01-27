@@ -1,5 +1,6 @@
 import random
 import smtplib
+import threading
 from email.mime.text import MIMEText
 from typing import Iterable
 
@@ -11,7 +12,7 @@ def generate_6_digit_code() -> str:
     return f"{random.randint(0, 999999):06d}"
 
 
-def send_email(recipients: Iterable[str], subject: str, body: str) -> None:
+def _send_email_sync(recipients: Iterable[str], subject: str, body: str) -> None:
     settings = SystemSettings.get_or_create()
     host = settings.smtp_host or current_app.config.get("SMTP_HOST")
     port = settings.smtp_port or current_app.config.get("SMTP_PORT")
@@ -36,3 +37,15 @@ def send_email(recipients: Iterable[str], subject: str, body: str) -> None:
             server.sendmail(sender, recipients, message.as_string())
     except Exception as exc:  # pragma: no cover - starter logging only
         current_app.logger.error("Failed to send email: %s", exc)
+
+
+def send_email(recipients: Iterable[str], subject: str, body: str) -> None:
+    """Dispatch email, optionally using a background thread."""
+    if current_app.config.get("SEND_EMAIL_ASYNC", True):
+        threading.Thread(
+            target=_send_email_sync,
+            args=(list(recipients), subject, body),
+            daemon=True,
+        ).start()
+        return
+    _send_email_sync(recipients, subject, body)
