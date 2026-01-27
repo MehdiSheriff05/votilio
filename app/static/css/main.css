@@ -31,7 +31,7 @@ body {
   border-radius: 18px 18px 0 0;
 }
 
-.ratio-5x4 {
+.ratio.ratio-5x4 {
   --bs-aspect-ratio: 80%;
 }
 
