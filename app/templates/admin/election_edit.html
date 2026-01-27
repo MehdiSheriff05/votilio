@@ -136,9 +136,9 @@
           </form>
         </div>
         <hr>
-        <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3" data-candidate-list data-position-id="{{ position.id }}">
+        <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3">
           {% for candidate in position.candidates %}
-            <div class="col js-draggable-card" data-candidate-id="{{ candidate.id }}" draggable="true">
+            <div class="col">
               <div class="card h-100">
                 {% if candidate.photo_url %}
                   {% if candidate.photo_url.startswith('http') %}
@@ -153,10 +153,6 @@
                   <img src="{{ candidate_image }}" class="candidate-photo" alt="{{ candidate.name }}" loading="lazy" decoding="async">
                 </div>
                 <div class="card-body">
-                  <div class="d-flex align-items-center gap-2 text-muted mb-2">
-                    <i class="bi bi-grip-vertical"></i>
-                    <small>Drag to reorder</small>
-                  </div>
                   <form method="post" action="{{ url_for('admin.update_candidate', candidate_id=candidate.id) }}" enctype="multipart/form-data">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <input type="hidden" name="next" value="{{ url_for('admin.edit_election', election_id=election.id) }}">
@@ -231,57 +227,3 @@
   <p>No positions created yet. Use the form above to get started.</p>
 {% endif %}
 {% endblock %}
-
-<script>
-  document.addEventListener('DOMContentLoaded', function () {
-    const csrfToken = document.querySelector('[data-position-list]')?.dataset?.csrfToken;
-    if (!csrfToken) return;
-
-    function setupDragList(container, itemSelector, endpointBuilder) {
-      let draggedItem = null;
-      container.addEventListener('dragstart', function (event) {
-        const item = event.target.closest(itemSelector);
-        if (!item) return;
-        draggedItem = item;
-        event.dataTransfer.setData('text/plain', '');
-        event.dataTransfer.effectAllowed = 'move';
-        item.classList.add('opacity-50');
-      });
-      container.addEventListener('dragend', function () {
-        if (draggedItem) draggedItem.classList.remove('opacity-50');
-        draggedItem = null;
-      });
-      container.addEventListener('dragover', function (event) {
-        event.preventDefault();
-        const target = event.target.closest(itemSelector);
-        if (!target || target === draggedItem) return;
-        const rect = target.getBoundingClientRect();
-        const shouldInsertAfter = (event.clientY - rect.top) > rect.height / 2;
-        container.insertBefore(draggedItem, shouldInsertAfter ? target.nextSibling : target);
-      });
-      container.addEventListener('drop', function (event) {
-        event.preventDefault();
-        if (!draggedItem) return;
-        const ids = Array.from(container.querySelectorAll(itemSelector)).map((item) => item.dataset.positionId || item.dataset.candidateId);
-        const payload = { order: ids.map((id) => parseInt(id, 10)) };
-        const endpoint = endpointBuilder(container);
-        fetch(endpoint, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': csrfToken,
-          },
-          body: JSON.stringify(payload),
-        }).catch(() => {});
-      });
-    }
-
-    const positionList = document.querySelector('[data-position-list]');
-
-    document.querySelectorAll('[data-candidate-list]').forEach(function (list) {
-      setupDragList(list, '[data-candidate-id]', function (container) {
-        return '/admin/positions/' + container.dataset.positionId + '/candidates/reorder';
-      });
-    });
-  });
-</script>
