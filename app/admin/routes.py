@@ -651,6 +651,20 @@ def update_candidate(candidate_id):
     return redirect(next_url or url_for('admin.edit_election', election_id=candidate.position.election_id))
 
 
+@admin_bp.route('/candidates/<int:candidate_id>/delete', methods=['POST'])
+@login_required
+def delete_candidate(candidate_id):
+    """Deletes a candidate from a position."""
+    candidate = Candidate.query.get_or_404(candidate_id)
+    election_id = candidate.position.election_id
+    name = candidate.name
+    db.session.delete(candidate)
+    db.session.commit()
+    record_audit('candidate_deleted', f"Candidate '{name}' deleted", election_id=election_id)
+    flash('Candidate deleted.', 'info')
+    return redirect(url_for('admin.edit_election', election_id=election_id))
+
+
 @admin_bp.route('/elections/<int:election_id>/invitations', methods=['GET', 'POST'])
 @login_required
 def manage_invitations(election_id):
