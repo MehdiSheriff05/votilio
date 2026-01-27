@@ -109,6 +109,7 @@ class Position(db.Model):
         lazy=True,
         cascade='all, delete-orphan',
         order_by='Candidate.order_index',
+        foreign_keys='Candidate.position_id',
     )
 
 
