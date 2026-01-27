@@ -31,8 +31,8 @@ body {
   border-radius: 18px 18px 0 0;
 }
 
-.ratio.ratio-5x4 {
-  --bs-aspect-ratio: 80%;
+.ratio.ratio-4x5 {
+  --bs-aspect-ratio: 125%;
 }
 
 .candidate-card {
