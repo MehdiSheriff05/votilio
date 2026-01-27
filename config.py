@@ -6,6 +6,7 @@ BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
 class Config:
     SECRET_KEY = os.environ.get("FLASK_SECRET_KEY", "dev-secret-key")
+    PREFERRED_URL_SCHEME = os.environ.get("PREFERRED_URL_SCHEME", "https")
     SQLALCHEMY_DATABASE_URI = os.environ.get(
         "DATABASE_URL",
         "postgresql+psycopg2://postgres:postgres@db:5432/votilio",
@@ -38,6 +39,7 @@ class Config:
     IMAGE_QUALITY = int(os.environ.get("IMAGE_QUALITY", 80))
     IMAGE_MAX_BYTES = int(os.environ.get("IMAGE_MAX_BYTES", 100 * 1024))
     DISPLAY_TIMEZONE = os.environ.get("DISPLAY_TIMEZONE", "GMT+4")
+    USE_PROXY_FIX = os.environ.get("USE_PROXY_FIX", "true").lower() == "true"
 
 
 class DevelopmentConfig(Config):

@@ -42,7 +42,7 @@
     <div class="col-12">
       <label class="form-label">Invitation email body</label>
       <textarea class="form-control" name="invite_body" rows="4" required>{{ settings.invite_body }}</textarea>
-      <div class="form-text">Available placeholders: {{ '{{ election_name }}' }}, {{ '{{ election_code }}' }}, {{ '{{ unique_identifier }}' }}, {{ '{{ voting_key }}' }}, {{ '{{ vote_url }}' }}, {{ '{{ recipient }}' }}, {{ '{{ recipient_email }}' }}, {{ '{{ opening_time }}' }}, {{ '{{ closing_time }}' }}</div>
+      <div class="form-text">Available placeholders: {{ '{{ election_name }}' }}, {{ '{{ election_code }}' }}, {{ '{{ unique_identifier }}' }}, {{ '{{ voting_key }}' }}, {{ '{{ vote_url }}' }}, {{ '{{ results_url }}' }}, {{ '{{ recipient }}' }}, {{ '{{ recipient_email }}' }}, {{ '{{ opening_time }}' }}, {{ '{{ closing_time }}' }}</div>
     </div>
     <div class="col-12">
       <label class="form-label">Reminder subject</label>
@@ -52,6 +52,15 @@
       <label class="form-label">Reminder email body</label>
       <textarea class="form-control" name="reminder_body" rows="4" required>{{ settings.reminder_body }}</textarea>
       <div class="form-text">Use the same placeholders as above.</div>
+    </div>
+    <div class="col-12">
+      <label class="form-label">Results subject</label>
+      <input class="form-control" name="results_subject" value="{{ settings.results_subject }}" required>
+    </div>
+    <div class="col-12">
+      <label class="form-label">Results email body</label>
+      <textarea class="form-control" name="results_body" rows="4" required>{{ settings.results_body }}</textarea>
+      <div class="form-text">Use the same placeholders as above. Results emails should include {{ '{{ results_url }}' }}.</div>
     </div>
   </div>
   <div class="mt-3">

@@ -214,6 +214,8 @@ def system_settings():
         invite_body = request.form.get('invite_body', '').strip()
         reminder_subject = request.form.get('reminder_subject', '').strip()
         reminder_body = request.form.get('reminder_body', '').strip()
+        results_subject = request.form.get('results_subject', '').strip()
+        results_body = request.form.get('results_body', '').strip()
         timezone_name = request.form.get('timezone_name', '').strip() or settings.timezone_name or 'UTC'
 
         try:
@@ -234,6 +236,8 @@ def system_settings():
         settings.invite_body = invite_body or settings.invite_body
         settings.reminder_subject = reminder_subject or settings.reminder_subject
         settings.reminder_body = reminder_body or settings.reminder_body
+        settings.results_subject = results_subject or settings.results_subject
+        settings.results_body = results_body or settings.results_body
         settings.timezone_name = timezone_name
         db.session.add(settings)
         db.session.commit()
@@ -872,7 +876,7 @@ def view_results(election_id):
     position_results = election.summarize_results()
     public_results_url = None
     if election.results_public and election.results_slug:
-        public_results_url = url_for('public.public_results', slug=election.results_slug, _external=True)
+        public_results_url = url_for('public.public_results', slug=election.results_slug, _external=True, _scheme="https")
     return render_template(
         'admin/dashboard.html',
         results_view=True,
@@ -900,6 +904,49 @@ def publish_results(election_id):
     db.session.add(election)
     db.session.commit()
     record_audit('results_visibility_changed', f"Results visibility updated for {election.name}", election_id=election.id)
+    return redirect(url_for('admin.view_results', election_id=election.id))
+
+
+@admin_bp.route('/elections/<int:election_id>/results/send', methods=['POST'])
+@login_required
+def send_results_link(election_id):
+    """Sends the public results link to all voters with an email on file."""
+    election = Election.query.get_or_404(election_id)
+    if not election.results_public or not election.results_slug:
+        flash('Publish the results link before sending.', 'warning')
+        return redirect(url_for('admin.view_results', election_id=election.id))
+
+    recipients = VoterInvitation.query.filter(
+        VoterInvitation.election_id == election.id,
+        VoterInvitation.email.isnot(None),
+    ).all()
+    if not recipients:
+        flash('No voter emails available to notify.', 'info')
+        return redirect(url_for('admin.view_results', election_id=election.id))
+
+    results_url = url_for('public.public_results', slug=election.results_slug, _external=True, _scheme="https")
+    settings = SystemSettings.get_or_create()
+    sent_count = 0
+    for invitation in recipients:
+        recipient_label = invitation.name or invitation.email or "Votilio voter"
+        context = {
+            "election_name": election.name,
+            "election_code": election.access_code or "",
+            "results_url": results_url,
+            "recipient": recipient_label,
+            "recipient_email": invitation.email,
+        }
+        subject = render_email_template(settings.results_subject, context)
+        body = render_email_template(settings.results_body, context)
+        try:
+            send_email([invitation.email], subject, body)
+            sent_count += 1
+        except Exception:
+            continue
+
+    if sent_count:
+        record_audit('results_link_sent', f'Sent results link to {sent_count} voter(s) for {election.name}', election_id=election.id)
+    flash(f'Sent {sent_count} results email(s).', 'success')
     return redirect(url_for('admin.view_results', election_id=election.id))
 
 
@@ -978,7 +1025,7 @@ def _window_labels(election: Election):
 def _send_invite_email(invitation: VoterInvitation, election: Election, plain_key: str) -> bool:
     """Actually fires the invitation email, swallowing SMTP errors into a bool."""
     try:
-        base_link = url_for('public.vote', _external=True)
+        base_link = url_for('public.vote', _external=True, _scheme="https")
     except RuntimeError:
         base_link = ''
     settings = SystemSettings.get_or_create()
@@ -1007,7 +1054,7 @@ def _send_invite_email(invitation: VoterInvitation, election: Election, plain_ke
 def _send_reminder_email(invitation: VoterInvitation, election: Election) -> bool:
     """Sends reminder emails while gracefully failing if SMTP flakes out."""
     try:
-        base_link = url_for('public.vote', _external=True)
+        base_link = url_for('public.vote', _external=True, _scheme="https")
     except RuntimeError:
         base_link = ''
     settings = SystemSettings.get_or_create()

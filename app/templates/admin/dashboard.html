@@ -22,6 +22,10 @@
         {% if public_results_url %}
           <span class="badge bg-success">Public link live</span>
           <input type="text" class="form-control" value="{{ public_results_url }}" readonly onclick="this.select();">
+          <form method="post" action="{{ url_for('admin.send_results_link', election_id=election.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-outline-primary" type="submit">Email Results Link</button>
+          </form>
           <form method="post" action="{{ url_for('admin.publish_results', election_id=election.id) }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="action" value="unpublish">

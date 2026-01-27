@@ -172,6 +172,16 @@ class SystemSettings(db.Model):
             "Vote link: {{ vote_url }}."
         ),
     )
+    results_subject = db.Column(db.String(255), nullable=False, default="Results for {{ election_name }}")
+    results_body = db.Column(
+        db.Text,
+        nullable=False,
+        default=(
+            "Results are now available for '{{ election_name }}'.\n\n"
+            "Election Code: {{ election_code }}\n"
+            "Results link: {{ results_url }}\n"
+        ),
+    )
     timezone_name = db.Column(db.String(128), nullable=False, default="UTC")
 
     @classmethod
@@ -203,6 +213,12 @@ class SystemSettings(db.Model):
                 "Unique identifier: {{ unique_identifier }}\n"
                 "Key: {{ voting_key }}\n"
                 "Vote link: {{ vote_url }}."
+            ),
+            results_subject="Results for {{ election_name }}",
+            results_body=(
+                "Results are now available for '{{ election_name }}'.\n\n"
+                "Election Code: {{ election_code }}\n"
+                "Results link: {{ results_url }}\n"
             ),
             timezone_name=app_obj.config.get("DISPLAY_TIMEZONE", "UTC"),
         )
