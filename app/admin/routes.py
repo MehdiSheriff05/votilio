@@ -537,6 +537,42 @@ def reorder_positions(election_id):
     return jsonify({"status": "ok"})
 
 
+@admin_bp.route('/positions/<int:position_id>/move', methods=['POST'])
+@login_required
+def move_position(position_id):
+    """Moves a position up or down by swapping its order index."""
+    position = Position.query.get_or_404(position_id)
+    direction = request.form.get('direction')
+    election_id = position.election_id
+    if direction == 'up':
+        neighbor = (
+            Position.query.filter(
+                Position.election_id == election_id,
+                Position.order_index < position.order_index,
+            )
+            .order_by(Position.order_index.desc())
+            .first()
+        )
+    else:
+        neighbor = (
+            Position.query.filter(
+                Position.election_id == election_id,
+                Position.order_index > position.order_index,
+            )
+            .order_by(Position.order_index.asc())
+            .first()
+        )
+    if not neighbor:
+        flash('Cannot move position further in that direction.', 'info')
+        return redirect(url_for('admin.edit_election', election_id=election_id))
+    position.order_index, neighbor.order_index = neighbor.order_index, position.order_index
+    db.session.add(position)
+    db.session.add(neighbor)
+    db.session.commit()
+    flash('Position order updated.', 'success')
+    return redirect(url_for('admin.edit_election', election_id=election_id))
+
+
 @admin_bp.route('/positions/<int:position_id>/candidates/reorder', methods=['POST'])
 @login_required
 def reorder_candidates(position_id):
