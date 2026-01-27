@@ -595,46 +595,6 @@ def reorder_candidates(position_id):
     return jsonify({"status": "ok"})
 
 
-@admin_bp.route('/positions/<int:position_id>/move', methods=['POST'])
-@login_required
-def move_position(position_id):
-    """Handles drag/drop style movements by swapping order indexes."""
-    # this keeps positional order predictable with simple up/down bumps
-    position = Position.query.get_or_404(position_id)
-    direction = request.form.get('direction')
-    election_id = position.election_id
-    # look for neighbor to swap order with
-    if direction == 'up':
-        neighbor = (
-            Position.query.filter(
-                Position.election_id == election_id,
-                Position.order_index < position.order_index,
-            )
-            .order_by(Position.order_index.desc())
-            .first()
-        )
-    elif direction == 'down':
-        neighbor = (
-            Position.query.filter(
-                Position.election_id == election_id,
-                Position.order_index > position.order_index,
-            )
-            .order_by(Position.order_index.asc())
-            .first()
-        )
-    else:
-        neighbor = None
-    if neighbor:
-        position.order_index, neighbor.order_index = neighbor.order_index, position.order_index
-        db.session.add(position)
-        db.session.add(neighbor)
-        db.session.commit()
-        flash('Position order updated.', 'success')
-    else:
-        flash('Cannot move position further in that direction.', 'info')
-    return redirect(url_for('admin.edit_election', election_id=election_id))
-
-
 @admin_bp.route('/candidates/<int:candidate_id>/update', methods=['POST'])
 @login_required
 def update_candidate(candidate_id):
