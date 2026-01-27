@@ -23,34 +23,70 @@
 {% for bucket in summary %}
   <div class="card mb-4">
     <div class="card-body">
-      <div class="d-flex justify-content-between align-items-center">
+      <div class="d-flex justify-content-between align-items-center mb-3">
         <div>
           <h4 class="mb-0">{{ bucket.position.name }}</h4>
           <small class="text-muted">{{ bucket.position.description }}</small>
         </div>
         {% if bucket.winners %}
-          <span class="badge badge-theme">Winner{{ 's' if bucket.winners|length > 1 else '' }}: {{ bucket.winners|map(attribute='name')|join(', ') }}</span>
+          <span class="badge badge-theme">Winner: {{ bucket.winners[0].name }}</span>
         {% else %}
           <span class="badge bg-secondary">No votes yet</span>
         {% endif %}
       </div>
-      <div class="table-responsive mt-3">
-        <table class="table align-middle mb-0">
-          <thead>
-            <tr>
-              <th>Candidate</th>
-              <th class="text-end">Votes</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for row in bucket.candidates %}
-              <tr class="{{ 'winner-row' if row.candidate in bucket.winners else '' }}">
-                <td>{{ row.candidate.name }}</td>
-                <td class="text-end fw-bold">{{ row.count }}</td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
+      <div class="row g-3 align-items-stretch">
+        <div class="col-md-4">
+          <div class="border rounded-4 p-3 h-100">
+            {% if bucket.winners %}
+              {% set winner = bucket.winners[0] %}
+              {% if winner.photo_url %}
+                {% if winner.photo_url.startswith('http') %}
+                  {% set winner_image = winner.photo_url %}
+                {% else %}
+                  {% set winner_image = url_for('static', filename=winner.photo_url) %}
+                {% endif %}
+              {% else %}
+                {% set winner_image = url_for('static', filename='img/placeholder-male.png') %}
+              {% endif %}
+              <div class="ratio ratio-4x5 mb-3">
+                <img src="{{ winner_image }}" class="candidate-photo" alt="{{ winner.name }}" loading="lazy" decoding="async">
+              </div>
+              {% set winner_votes = (bucket.candidates | selectattr('candidate', 'equalto', winner) | list | first) %}
+              <h5 class="mb-1">{{ winner.name }}</h5>
+              <div class="text-muted small">{{ winner_votes.count if winner_votes else 0 }} votes</div>
+            {% else %}
+              <div class="text-muted">Winner not set yet.</div>
+            {% endif %}
+          </div>
+        </div>
+        <div class="col-md-8">
+          <div class="table-responsive">
+            <table class="table align-middle mb-0">
+              <thead>
+                <tr>
+                  <th>Candidate</th>
+                  <th class="text-end">Votes</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in bucket.candidates %}
+                  <tr class="{{ 'winner-row' if row.candidate in bucket.winners else '' }}">
+                    <td>
+                      {{ row.candidate.name }}
+                      {% if row.candidate.is_declined %}
+                        <span class="badge bg-warning text-dark ms-2">Declined</span>
+                      {% endif %}
+                      {% if row.candidate.is_disqualified %}
+                        <span class="badge bg-danger ms-2">Disqualified</span>
+                      {% endif %}
+                    </td>
+                    <td class="text-end fw-bold">{{ row.count }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </div>
   </div>

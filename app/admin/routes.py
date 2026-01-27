@@ -960,6 +960,41 @@ def view_results(election_id):
     )
 
 
+@admin_bp.route('/positions/<int:position_id>/winner_override', methods=['POST'])
+@login_required
+def set_winner_override(position_id):
+    """Sets the winner override for a position."""
+    position = Position.query.get_or_404(position_id)
+    override_id = request.form.get('winner_override_id')
+    if override_id:
+        try:
+            override_id = int(override_id)
+        except ValueError:
+            override_id = None
+    else:
+        override_id = None
+    position.winner_override_id = override_id
+    db.session.add(position)
+    db.session.commit()
+    record_audit('winner_override_set', f"Winner override updated for {position.name}", election_id=position.election_id)
+    flash('Winner override updated.', 'success')
+    return redirect(url_for('admin.view_results', election_id=position.election_id))
+
+
+@admin_bp.route('/candidates/<int:candidate_id>/status', methods=['POST'])
+@login_required
+def update_candidate_status(candidate_id):
+    """Flags a candidate as declined or disqualified."""
+    candidate = Candidate.query.get_or_404(candidate_id)
+    candidate.is_declined = request.form.get('is_declined') == 'on'
+    candidate.is_disqualified = request.form.get('is_disqualified') == 'on'
+    db.session.add(candidate)
+    db.session.commit()
+    record_audit('candidate_status_updated', f"Candidate '{candidate.name}' status updated", election_id=candidate.position.election_id)
+    flash('Candidate status updated.', 'success')
+    return redirect(url_for('admin.view_results', election_id=candidate.position.election_id))
+
+
 @admin_bp.route('/elections/<int:election_id>/results/publish', methods=['POST'])
 @login_required
 def publish_results(election_id):

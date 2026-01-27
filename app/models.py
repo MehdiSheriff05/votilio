@@ -65,7 +65,25 @@ class Election(db.Model):
                 total_votes += count
                 if count > max_votes:
                     max_votes = count
-            winners = [item['candidate'] for item in candidate_counts if item['count'] == max_votes and max_votes > 0]
+            # Sort by votes, highest first for winner selection.
+            candidate_counts.sort(key=lambda item: item['count'], reverse=True)
+            winner = None
+            if position.winner_override_id:
+                winner = next(
+                    (item['candidate'] for item in candidate_counts if item['candidate'].id == position.winner_override_id),
+                    None,
+                )
+                if winner and (winner.is_declined or winner.is_disqualified):
+                    winner = None
+            if not winner:
+                for item in candidate_counts:
+                    candidate = item['candidate']
+                    if item['count'] <= 0:
+                        break
+                    if not candidate.is_declined and not candidate.is_disqualified:
+                        winner = candidate
+                        break
+            winners = [winner] if winner else []
             summary.append({
                 'position': position,
                 'candidates': candidate_counts,
@@ -83,6 +101,7 @@ class Position(db.Model):
     description = db.Column(db.Text, nullable=True)
     candidate_slots = db.Column(db.Integer, default=1, nullable=False)
     order_index = db.Column(db.Integer, nullable=False, default=0)
+    winner_override_id = db.Column(db.Integer, db.ForeignKey('candidate.id'), nullable=True)
 
     candidates = db.relationship(
         'Candidate',
@@ -100,6 +119,8 @@ class Candidate(db.Model):
     description = db.Column(db.Text, nullable=True)
     photo_url = db.Column(db.String(255), nullable=True)
     order_index = db.Column(db.Integer, nullable=False, default=0)
+    is_declined = db.Column(db.Boolean, nullable=False, default=False)
+    is_disqualified = db.Column(db.Boolean, nullable=False, default=False)
 
 
 class VoterInvitation(db.Model):
