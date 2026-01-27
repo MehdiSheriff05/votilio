@@ -2,6 +2,14 @@
 {% block admin_content %}
 <h2>SMTP Settings</h2>
 <p class="text-muted">Configure email delivery and templates for invitations, reminders, and results.</p>
+<div class="alert alert-light border mb-3">
+  <div class="fw-semibold mb-1">Available placeholders</div>
+  <div class="small text-muted">
+    {{ '{{ election_name }}' }}, {{ '{{ election_code }}' }}, {{ '{{ unique_identifier }}' }}, {{ '{{ voting_key }}' }},
+    {{ '{{ vote_url }}' }}, {{ '{{ results_url }}' }}, {{ '{{ recipient }}' }}, {{ '{{ recipient_email }}' }},
+    {{ '{{ opening_time }}' }}, {{ '{{ closing_time }}' }}
+  </div>
+</div>
 <form method="post" class="card card-body" autocomplete="off">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <ul class="nav nav-tabs" id="smtpSettingsTabs" role="tablist">
@@ -62,7 +70,6 @@
         <div class="col-12">
           <label class="form-label">Invitation email body</label>
           <textarea class="form-control" name="invite_body" rows="6" required>{{ settings.invite_body }}</textarea>
-          <div class="form-text">Available placeholders: {{ '{{ election_name }}' }}, {{ '{{ election_code }}' }}, {{ '{{ unique_identifier }}' }}, {{ '{{ voting_key }}' }}, {{ '{{ vote_url }}' }}, {{ '{{ results_url }}' }}, {{ '{{ recipient }}' }}, {{ '{{ recipient_email }}' }}, {{ '{{ opening_time }}' }}, {{ '{{ closing_time }}' }}</div>
         </div>
       </div>
     </div>
@@ -88,7 +95,7 @@
         <div class="col-12">
           <label class="form-label">Results email body</label>
           <textarea class="form-control" name="results_body" rows="6" required>{{ settings.results_body }}</textarea>
-          <div class="form-text">Use the same placeholders as above. Results emails should include {{ '{{ results_url }}' }}.</div>
+          <div class="form-text">Results emails should include {{ '{{ results_url }}' }}.</div>
         </div>
       </div>
     </div>
