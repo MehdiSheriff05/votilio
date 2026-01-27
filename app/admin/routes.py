@@ -6,7 +6,7 @@ from typing import Optional, Set
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from flask import (current_app, flash, redirect, render_template, request,
-                   session, url_for)
+                   session, url_for, jsonify)
 
 from app import db
 from app.admin import admin_bp
@@ -466,11 +466,18 @@ def create_candidate(position_id):
             return redirect(next_url or request.url)
         if not saved_path and placeholder_choice in {'male', 'female'}:
             saved_path = f"img/placeholder-{placeholder_choice}.png"
+        order_index = (
+            db.session.query(db.func.max(Candidate.order_index))
+            .filter_by(position_id=position.id)
+            .scalar()
+        )
+        order_index = (order_index or 0) + 1
         candidate = Candidate(
             position=position,
             name=name,
             description=description,
             photo_url=saved_path or None,
+            order_index=order_index,
         )
         db.session.add(candidate)
         db.session.commit()
@@ -506,6 +513,50 @@ def update_position(position_id):
     record_audit('position_updated', f"Position '{position.name}' updated", election_id=position.election_id)
     flash('Position updated.', 'success')
     return redirect(next_url or url_for('admin.edit_election', election_id=position.election_id))
+
+
+@admin_bp.route('/elections/<int:election_id>/positions/reorder', methods=['POST'])
+@login_required
+def reorder_positions(election_id):
+    """Reorders positions via drag-and-drop."""
+    payload = request.get_json(silent=True) or {}
+    order = payload.get('order', [])
+    if not isinstance(order, list) or not order:
+        return jsonify({"status": "error", "message": "Missing order list."}), 400
+    positions = Position.query.filter(
+        Position.election_id == election_id,
+        Position.id.in_(order),
+    ).all()
+    if len(positions) != len(order):
+        return jsonify({"status": "error", "message": "Invalid position list."}), 400
+    by_id = {pos.id: pos for pos in positions}
+    for idx, pos_id in enumerate(order):
+        if pos_id in by_id:
+            by_id[pos_id].order_index = idx
+    db.session.commit()
+    return jsonify({"status": "ok"})
+
+
+@admin_bp.route('/positions/<int:position_id>/candidates/reorder', methods=['POST'])
+@login_required
+def reorder_candidates(position_id):
+    """Reorders candidates within a position via drag-and-drop."""
+    payload = request.get_json(silent=True) or {}
+    order = payload.get('order', [])
+    if not isinstance(order, list) or not order:
+        return jsonify({"status": "error", "message": "Missing order list."}), 400
+    candidates = Candidate.query.filter(
+        Candidate.position_id == position_id,
+        Candidate.id.in_(order),
+    ).all()
+    if len(candidates) != len(order):
+        return jsonify({"status": "error", "message": "Invalid candidate list."}), 400
+    by_id = {cand.id: cand for cand in candidates}
+    for idx, cand_id in enumerate(order):
+        if cand_id in by_id:
+            by_id[cand_id].order_index = idx
+    db.session.commit()
+    return jsonify({"status": "ok"})
 
 
 @admin_bp.route('/positions/<int:position_id>/move', methods=['POST'])

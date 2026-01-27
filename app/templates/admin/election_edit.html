@@ -97,12 +97,16 @@
 
 <h4 class="mb-3">Positions & Candidates</h4>
 {% if positions %}
+  <div data-position-list data-csrf-token="{{ csrf_token() }}">
   {% for position in positions %}
     {% set total_candidates = position.candidates|length %}
     <div class="card mb-4">
-      <div class="card-body">
+      <div class="card-body js-draggable-card" data-position-id="{{ position.id }}" draggable="true">
         <div class="d-flex justify-content-between align-items-center mb-3">
-          <h5 class="mb-0">{{ position.name }}</h5>
+          <div class="d-flex align-items-center gap-2">
+            <i class="bi bi-grip-vertical text-muted"></i>
+            <h5 class="mb-0">{{ position.name }}</h5>
+          </div>
           <span class="badge bg-secondary">{{ total_candidates }} candidate{{ 's' if total_candidates != 1 else '' }}</span>
         </div>
         <form method="post" action="{{ url_for('admin.update_position', position_id=position.id) }}">
@@ -122,23 +126,13 @@
             <button class="btn btn-outline-secondary btn-sm" type="submit">Update Position</button>
           </div>
         </form>
-        <div class="d-flex justify-content-end gap-2 mb-3">
-          <!-- simple bump buttons let admins reorder positions without page reload -->
-          <form method="post" action="{{ url_for('admin.move_position', position_id=position.id) }}">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <input type="hidden" name="direction" value="up">
-            <button class="btn btn-outline-primary btn-sm" type="submit" title="Move up">&uarr;</button>
-          </form>
-          <form method="post" action="{{ url_for('admin.move_position', position_id=position.id) }}">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <input type="hidden" name="direction" value="down">
-            <button class="btn btn-outline-primary btn-sm" type="submit" title="Move down">&darr;</button>
-          </form>
+        <div class="d-flex justify-content-end gap-2 mb-3 text-muted small">
+          Drag the card header to reorder positions.
         </div>
         <hr>
-        <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3">
+        <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3" data-candidate-list data-position-id="{{ position.id }}">
           {% for candidate in position.candidates %}
-            <div class="col">
+            <div class="col js-draggable-card" data-candidate-id="{{ candidate.id }}" draggable="true">
               <div class="card h-100">
                 {% if candidate.photo_url %}
                   {% if candidate.photo_url.startswith('http') %}
@@ -153,6 +147,10 @@
                   <img src="{{ candidate_image }}" class="candidate-photo" alt="{{ candidate.name }}" loading="lazy" decoding="async">
                 </div>
                 <div class="card-body">
+                  <div class="d-flex align-items-center gap-2 text-muted mb-2">
+                    <i class="bi bi-grip-vertical"></i>
+                    <small>Drag to reorder</small>
+                  </div>
                   <form method="post" action="{{ url_for('admin.update_candidate', candidate_id=candidate.id) }}" enctype="multipart/form-data">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <input type="hidden" name="next" value="{{ url_for('admin.edit_election', election_id=election.id) }}">
@@ -222,7 +220,66 @@
       </div>
     </div>
   {% endfor %}
+  </div>
 {% else %}
   <p>No positions created yet. Use the form above to get started.</p>
 {% endif %}
 {% endblock %}
+
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const csrfToken = document.querySelector('[data-position-list]')?.dataset?.csrfToken;
+    if (!csrfToken) return;
+
+    function setupDragList(container, itemSelector, endpointBuilder) {
+      let draggedItem = null;
+      container.addEventListener('dragstart', function (event) {
+        const item = event.target.closest(itemSelector);
+        if (!item) return;
+        draggedItem = item;
+        event.dataTransfer.effectAllowed = 'move';
+        item.classList.add('opacity-50');
+      });
+      container.addEventListener('dragend', function () {
+        if (draggedItem) draggedItem.classList.remove('opacity-50');
+        draggedItem = null;
+      });
+      container.addEventListener('dragover', function (event) {
+        event.preventDefault();
+        const target = event.target.closest(itemSelector);
+        if (!target || target === draggedItem) return;
+        const rect = target.getBoundingClientRect();
+        const shouldInsertAfter = (event.clientY - rect.top) > rect.height / 2;
+        container.insertBefore(draggedItem, shouldInsertAfter ? target.nextSibling : target);
+      });
+      container.addEventListener('drop', function (event) {
+        event.preventDefault();
+        if (!draggedItem) return;
+        const ids = Array.from(container.querySelectorAll(itemSelector)).map((item) => item.dataset.positionId || item.dataset.candidateId);
+        const payload = { order: ids.map((id) => parseInt(id, 10)) };
+        const endpoint = endpointBuilder(container);
+        fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken,
+          },
+          body: JSON.stringify(payload),
+        }).catch(() => {});
+      });
+    }
+
+    const positionList = document.querySelector('[data-position-list]');
+    if (positionList) {
+      setupDragList(positionList, '[data-position-id]', function () {
+        return '{{ url_for("admin.reorder_positions", election_id=election.id) }}';
+      });
+    }
+
+    document.querySelectorAll('[data-candidate-list]').forEach(function (list) {
+      setupDragList(list, '[data-candidate-id]', function (container) {
+        return '/admin/positions/' + container.dataset.positionId + '/candidates/reorder';
+      });
+    });
+  });
+</script>

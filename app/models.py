@@ -84,7 +84,13 @@ class Position(db.Model):
     candidate_slots = db.Column(db.Integer, default=1, nullable=False)
     order_index = db.Column(db.Integer, nullable=False, default=0)
 
-    candidates = db.relationship('Candidate', backref='position', lazy=True, cascade='all, delete-orphan')
+    candidates = db.relationship(
+        'Candidate',
+        backref='position',
+        lazy=True,
+        cascade='all, delete-orphan',
+        order_by='Candidate.order_index',
+    )
 
 
 class Candidate(db.Model):
@@ -93,6 +99,7 @@ class Candidate(db.Model):
     name = db.Column(db.String(128), nullable=False)
     description = db.Column(db.Text, nullable=True)
     photo_url = db.Column(db.String(255), nullable=True)
+    order_index = db.Column(db.Integer, nullable=False, default=0)
 
 
 class VoterInvitation(db.Model):

@@ -47,6 +47,10 @@ body {
   overflow: hidden;
 }
 
+.js-draggable-card {
+  cursor: move;
+}
+
 .candidate-card:hover {
   transform: translateY(-4px);
   border-color: rgba(0, 113, 227, 0.5);
