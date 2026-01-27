@@ -262,6 +262,13 @@
         <label class="form-label">Photo</label>
         <input type="file" class="form-control" name="photo" accept="image/*">
       </div>
+      <div class="mb-3">
+        <label class="form-label">Placeholder</label>
+        <select class="form-select" name="placeholder_choice">
+          <option value="male">Male</option>
+          <option value="female">Female</option>
+        </select>
+      </div>
       <button class="btn btn-primary" type="submit">Save Candidate</button>
     </form>
   {% else %}

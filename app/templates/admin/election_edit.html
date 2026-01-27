@@ -147,7 +147,7 @@
                     {% set candidate_image = url_for('static', filename=candidate.photo_url) %}
                   {% endif %}
                 {% else %}
-                  {% set candidate_image = url_for('static', filename='img/candidate-placeholder.svg') %}
+                  {% set candidate_image = url_for('static', filename='img/placeholder-male.png') %}
                 {% endif %}
                 <div class="ratio ratio-5x4">
                   <img src="{{ candidate_image }}" class="candidate-photo" alt="{{ candidate.name }}" loading="lazy" decoding="async">
@@ -167,6 +167,13 @@
                     <div class="mb-2">
                       <label class="form-label">Photo</label>
                       <input type="file" class="form-control" name="photo" accept="image/*">
+                      <div class="mt-2">
+                        <label class="form-label">Placeholder</label>
+                        <select class="form-select" name="placeholder_choice">
+                          <option value="male" {{ 'selected' if (candidate.photo_url or '').endswith('placeholder-male.png') else '' }}>Male</option>
+                          <option value="female" {{ 'selected' if (candidate.photo_url or '').endswith('placeholder-female.png') else '' }}>Female</option>
+                        </select>
+                      </div>
                       <div class="form-check mt-1">
                         <input class="form-check-input" type="checkbox" name="remove_photo" id="remove_photo_{{ candidate.id }}">
                         <label class="form-check-label" for="remove_photo_{{ candidate.id }}">Use placeholder image</label>
@@ -196,10 +203,17 @@
               <label class="form-label">Bio / details</label>
               <input class="form-control" name="description">
             </div>
-            <div class="col-md-3">
-              <label class="form-label">Photo</label>
-              <input type="file" class="form-control" name="photo" accept="image/*">
-            </div>
+              <div class="col-md-3">
+                <label class="form-label">Photo</label>
+                <input type="file" class="form-control" name="photo" accept="image/*">
+              </div>
+              <div class="col-md-3">
+                <label class="form-label">Placeholder</label>
+                <select class="form-select" name="placeholder_choice">
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                </select>
+              </div>
             <div class="col-12">
               <button class="btn btn-outline-success btn-sm" type="submit">Add Candidate</button>
             </div>

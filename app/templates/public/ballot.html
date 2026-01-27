@@ -45,7 +45,7 @@
                     {% set candidate_image = url_for('static', filename=candidate.photo_url) %}
                   {% endif %}
                 {% else %}
-                  {% set candidate_image = url_for('static', filename='img/candidate-placeholder.svg') %}
+                  {% set candidate_image = url_for('static', filename='img/placeholder-male.png') %}
                 {% endif %}
                 <div class="ratio ratio-5x4 mb-3">
                   <img src="{{ candidate_image }}" class="candidate-photo" alt="{{ candidate.name }}" loading="lazy" decoding="async">

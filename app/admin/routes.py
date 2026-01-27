@@ -458,11 +458,14 @@ def create_candidate(position_id):
             db.session.add(position)
         name = request.form.get('name', '').strip()
         description = request.form.get('description', '').strip()
+        placeholder_choice = request.form.get('placeholder_choice', 'male').strip().lower()
         photo_file = request.files.get('photo')
         saved_path = save_uploaded_image(photo_file) if photo_file else None
         if not name:
             flash('Name is required.', 'danger')
             return redirect(next_url or request.url)
+        if not saved_path and placeholder_choice in {'male', 'female'}:
+            saved_path = f"img/placeholder-{placeholder_choice}.png"
         candidate = Candidate(
             position=position,
             name=name,
@@ -554,6 +557,7 @@ def update_candidate(candidate_id):
     name = request.form.get('name', '').strip()
     description = request.form.get('description', '').strip()
     remove_photo = request.form.get('remove_photo') == 'on'
+    placeholder_choice = request.form.get('placeholder_choice', 'male').strip().lower()
     photo_file = request.files.get('photo')
     if not name:
         flash('Name is required.', 'danger')
@@ -567,7 +571,10 @@ def update_candidate(candidate_id):
         else:
             flash('Unsupported image type. Use PNG, JPG, GIF, or WEBP.', 'warning')
     elif remove_photo:
-        candidate.photo_url = None
+        if placeholder_choice in {'male', 'female'}:
+            candidate.photo_url = f"img/placeholder-{placeholder_choice}.png"
+        else:
+            candidate.photo_url = None
 
     candidate.name = name
     candidate.description = description
