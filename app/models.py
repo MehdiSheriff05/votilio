@@ -122,7 +122,7 @@ class Vote(db.Model):
     cast_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
     # Important: No voter identifiers are stored here to preserve anonymity.
-    election = db.relationship('Election', backref=db.backref('votes', lazy=True))
+    election = db.relationship('Election', backref=db.backref('votes', lazy=True, cascade='all, delete-orphan'))
     position = db.relationship('Position')
     candidate = db.relationship('Candidate')
 

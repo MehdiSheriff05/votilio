@@ -32,10 +32,11 @@ class Config:
     SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD")
     MAIL_SENDER = os.environ.get("MAIL_SENDER", "no-reply@votilio.local")
     UPLOAD_FOLDER = os.environ.get("UPLOAD_FOLDER", os.path.join(BASE_DIR, "app", "static", "uploads"))
-    MAX_CONTENT_LENGTH = int(os.environ.get("MAX_CONTENT_LENGTH", 4 * 1024 * 1024))
+    MAX_CONTENT_LENGTH = int(os.environ.get("MAX_CONTENT_LENGTH", 10 * 1024 * 1024))
     ALLOWED_IMAGE_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
     IMAGE_MAX_WIDTH = int(os.environ.get("IMAGE_MAX_WIDTH", 800))
     IMAGE_QUALITY = int(os.environ.get("IMAGE_QUALITY", 80))
+    IMAGE_MAX_BYTES = int(os.environ.get("IMAGE_MAX_BYTES", 100 * 1024))
     DISPLAY_TIMEZONE = os.environ.get("DISPLAY_TIMEZONE", "GMT+4")
 
 

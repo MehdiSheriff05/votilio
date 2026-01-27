@@ -104,19 +104,31 @@ def save_uploaded_image(file_storage) -> Optional[str]:
                 ratio = max_width / float(img.width)
                 new_height = int(img.height * ratio)
                 img = img.resize((max_width, new_height), Image.LANCZOS)
-            quality = current_app.config.get("IMAGE_QUALITY", 80)
+            quality = int(current_app.config.get("IMAGE_QUALITY", 80))
+            max_bytes = int(current_app.config.get("IMAGE_MAX_BYTES", 100 * 1024))
             fmt = img.format or ext.upper()
             fmt = 'JPEG' if fmt.upper() in ('JPG', 'JPEG') else fmt.upper()
-            if fmt == 'JPEG':
-                img = img.convert("RGB")
-                img.save(path, format='JPEG', optimize=True, quality=quality)
-            else:
-                if fmt == 'PNG':
+
+            def _save_image(target_fmt: str, target_quality: int) -> None:
+                if target_fmt == 'JPEG':
+                    img_converted = img.convert("RGB")
+                    img_converted.save(path, format='JPEG', optimize=True, quality=target_quality)
+                elif target_fmt == 'WEBP':
+                    img.save(path, format='WEBP', optimize=True, quality=target_quality)
+                elif target_fmt == 'PNG':
                     img.save(path, format='PNG', optimize=True)
-                elif fmt == 'WEBP':
-                    img.save(path, format='WEBP', optimize=True, quality=quality)
                 else:
-                    img.save(path, format=fmt, optimize=True)
+                    img.save(path, format=target_fmt, optimize=True)
+
+            _save_image(fmt, quality)
+            if os.path.getsize(path) > max_bytes:
+                # Enforce hard size cap by re-encoding as JPEG with decreasing quality.
+                target_quality = min(quality, 85)
+                while target_quality >= 30:
+                    _save_image('JPEG', target_quality)
+                    if os.path.getsize(path) <= max_bytes:
+                        break
+                    target_quality -= 10
     except Exception:
         # fallback to raw save if PIL choked
         file_storage.stream.seek(0)
