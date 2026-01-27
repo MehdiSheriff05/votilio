@@ -515,6 +515,23 @@ def update_position(position_id):
     return redirect(next_url or url_for('admin.edit_election', election_id=position.election_id))
 
 
+def _normalize_position_order(election_id: int) -> None:
+    """Ensure positions have a contiguous order_index to keep reordering stable."""
+    positions = (
+        Position.query.filter_by(election_id=election_id)
+        .order_by(Position.order_index.asc(), Position.id.asc())
+        .all()
+    )
+    changed = False
+    for idx, pos in enumerate(positions):
+        if pos.order_index != idx:
+            pos.order_index = idx
+            db.session.add(pos)
+            changed = True
+    if changed:
+        db.session.commit()
+
+
 @admin_bp.route('/elections/<int:election_id>/positions/reorder', methods=['POST'])
 @login_required
 def reorder_positions(election_id):
@@ -544,6 +561,7 @@ def move_position(position_id):
     position = Position.query.get_or_404(position_id)
     direction = request.form.get('direction')
     election_id = position.election_id
+    _normalize_position_order(election_id)
     if direction == 'up':
         neighbor = (
             Position.query.filter(

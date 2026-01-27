@@ -243,6 +243,7 @@
         const item = event.target.closest(itemSelector);
         if (!item) return;
         draggedItem = item;
+        event.dataTransfer.setData('text/plain', '');
         event.dataTransfer.effectAllowed = 'move';
         item.classList.add('opacity-50');
       });
