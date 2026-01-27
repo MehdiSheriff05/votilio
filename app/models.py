@@ -149,9 +149,29 @@ class SystemSettings(db.Model):
     smtp_password = db.Column(db.String(255), nullable=True)
     mail_sender = db.Column(db.String(255), nullable=False, default="no-reply@votilio.local")
     invite_subject = db.Column(db.String(255), nullable=False, default="Your Votilio key for {{ election_name }}")
-    invite_body = db.Column(db.Text, nullable=False, default="You are invited to vote in '{{ election_name }}'.\n\nKey: {{ voting_key }}\nVote link: {{ vote_url }}\n")
+    invite_body = db.Column(
+        db.Text,
+        nullable=False,
+        default=(
+            "You are invited to vote in '{{ election_name }}'.\n\n"
+            "Election Code: {{ election_code }}\n"
+            "Unique identifier: {{ unique_identifier }}\n"
+            "Key: {{ voting_key }}\n"
+            "Vote link: {{ vote_url }}\n"
+        ),
+    )
     reminder_subject = db.Column(db.String(255), nullable=False, default="Reminder: vote in {{ election_name }}")
-    reminder_body = db.Column(db.Text, nullable=False, default="Friendly reminder to vote in '{{ election_name }}'. Use key {{ voting_key }} at {{ vote_url }}.")
+    reminder_body = db.Column(
+        db.Text,
+        nullable=False,
+        default=(
+            "Friendly reminder to vote in '{{ election_name }}'.\n\n"
+            "Election Code: {{ election_code }}\n"
+            "Unique identifier: {{ unique_identifier }}\n"
+            "Key: {{ voting_key }}\n"
+            "Vote link: {{ vote_url }}."
+        ),
+    )
     timezone_name = db.Column(db.String(128), nullable=False, default="UTC")
 
     @classmethod
@@ -169,9 +189,21 @@ class SystemSettings(db.Model):
             smtp_password=app_obj.config.get("SMTP_PASSWORD"),
             mail_sender=app_obj.config.get("MAIL_SENDER", "no-reply@votilio.local"),
             invite_subject="Your Votilio key for {{ election_name }}",
-            invite_body="You are invited to vote in '{{ election_name }}'.\n\nKey: {{ voting_key }}\nVote link: {{ vote_url }}\n",
+            invite_body=(
+                "You are invited to vote in '{{ election_name }}'.\n\n"
+                "Election Code: {{ election_code }}\n"
+                "Unique identifier: {{ unique_identifier }}\n"
+                "Key: {{ voting_key }}\n"
+                "Vote link: {{ vote_url }}\n"
+            ),
             reminder_subject="Reminder: vote in {{ election_name }}",
-            reminder_body="Friendly reminder to vote in '{{ election_name }}'. Use key {{ voting_key }} at {{ vote_url }}.",
+            reminder_body=(
+                "Friendly reminder to vote in '{{ election_name }}'.\n\n"
+                "Election Code: {{ election_code }}\n"
+                "Unique identifier: {{ unique_identifier }}\n"
+                "Key: {{ voting_key }}\n"
+                "Vote link: {{ vote_url }}."
+            ),
             timezone_name=app_obj.config.get("DISPLAY_TIMEZONE", "UTC"),
         )
         db.session.add(instance)

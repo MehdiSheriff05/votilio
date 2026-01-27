@@ -986,7 +986,9 @@ def _send_invite_email(invitation: VoterInvitation, election: Election, plain_ke
     recipient_label = invitation.name or invitation.email or "Votilio voter"
     context = {
         "election_name": election.name,
+        "election_code": election.access_code or "",
         "voting_key": plain_key,
+        "unique_identifier": invitation.id,
         "vote_url": base_link,
         "recipient": recipient_label,
         "recipient_email": invitation.email,
@@ -1013,7 +1015,9 @@ def _send_reminder_email(invitation: VoterInvitation, election: Election) -> boo
     recipient_label = invitation.name or invitation.email or "Votilio voter"
     context = {
         "election_name": election.name,
+        "election_code": election.access_code or "",
         "voting_key": invitation.last_generated_key or "******",
+        "unique_identifier": invitation.id,
         "vote_url": base_link,
         "recipient": recipient_label,
         "recipient_email": invitation.email,
