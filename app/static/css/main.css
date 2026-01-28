@@ -35,6 +35,12 @@ body {
   --bs-aspect-ratio: 125%;
 }
 
+@media (max-width: 576px) {
+  .ratio.ratio-4x5 {
+    --bs-aspect-ratio: 85%;
+  }
+}
+
 .candidate-card {
   cursor: pointer;
   display: block;
