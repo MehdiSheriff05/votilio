@@ -108,6 +108,7 @@ body {
   }
 
   .candidate-card {
+    display: flex;
     flex-direction: row;
     align-items: stretch;
     padding: 0.75rem;
