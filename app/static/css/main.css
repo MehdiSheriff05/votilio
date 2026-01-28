@@ -35,12 +35,6 @@ body {
   --bs-aspect-ratio: 125%;
 }
 
-@media (max-width: 576px) {
-  .ratio.ratio-4x5 {
-    --bs-aspect-ratio: 85%;
-  }
-}
-
 .candidate-card {
   cursor: pointer;
   display: block;
@@ -78,6 +72,70 @@ body {
 
 .candidate-card p {
   color: #424245;
+}
+
+.candidate-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.candidate-list-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.candidate-list-item .candidate-thumb {
+  width: 70px;
+  height: 88px;
+  flex: 0 0 auto;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #f7f7f9;
+}
+
+.candidate-list-item .candidate-photo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 0;
+}
+
+@media (max-width: 576px) {
+  .ratio.ratio-4x5 {
+    --bs-aspect-ratio: 60%;
+  }
+
+  .candidate-card {
+    flex-direction: row;
+    align-items: stretch;
+    padding: 0.75rem;
+  }
+
+  .candidate-card .ratio.ratio-4x5 {
+    width: 72px;
+    flex: 0 0 auto;
+    margin-bottom: 0 !important;
+  }
+
+  .candidate-card .candidate-photo {
+    border-radius: 12px;
+  }
+
+  .candidate-card .candidate-meta {
+    padding: 0 0 0 0.75rem;
+  }
+
+  .candidate-list-item {
+    gap: 0.75rem;
+  }
+
+  .candidate-list-item .candidate-thumb {
+    width: 60px;
+    height: 75px;
+    border-radius: 12px;
+  }
 }
 
 .ballot-title {
