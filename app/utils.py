@@ -9,7 +9,6 @@ from flask import current_app, flash, redirect, session, url_for
 from jinja2 import Template
 from markupsafe import Markup, escape
 from PIL import Image
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from werkzeug.utils import secure_filename
 
 from app import db
@@ -156,26 +155,21 @@ def active_timezone_label() -> str:
 
 
 def _zoneinfo_for(label: str):
-    """Best effort loader that returns a ZoneInfo or timezone offset for labels."""
-    try:
-        return ZoneInfo(label)
-    except ZoneInfoNotFoundError:
-        offset = _timezone_offset_from_label(label)
-        if offset:
-            return timezone(offset)
-    except Exception:
-        return None
+    """Best effort loader that returns a timezone offset for GMT/UTC labels."""
+    offset = _timezone_offset_from_label(label)
+    if offset is not None:
+        return timezone(offset)
     return None
 
 
-def _timezone_offset_from_label(label: str) -> timedelta:
+def _timezone_offset_from_label(label: str) -> Optional[timedelta]:
     """Parses GMT/UTC style offsets like GMT+4 or UTC-05:30."""
     if not label:
-        return timedelta()
+        return None
     cleaned = label.strip().upper().replace('UTC', '').replace('GMT', '')
     match = re.match(r'^([+-])\s*(\d{1,2})(?::(\d{2}))?$', cleaned)
     if not match:
-        return timedelta()
+        return None
     sign = 1 if match.group(1) == '+' else -1
     hours = int(match.group(2))
     minutes = int(match.group(3)) if match.group(3) else 0
@@ -183,7 +177,7 @@ def _timezone_offset_from_label(label: str) -> timedelta:
 
 
 def format_display_time(dt, placeholder: str = "Not available", render_html: bool = True) -> str:
-    """Human friendly label with configured timezone, or placeholder when dt missing."""
+    """Human friendly label with configured GMT offset, or placeholder when dt missing."""
     tz_label = active_timezone_label()
     if not dt:
         return placeholder if not render_html else escape(placeholder)
@@ -196,6 +190,4 @@ def format_display_time(dt, placeholder: str = "Not available", render_html: boo
     rendered = f"{local_dt.strftime('%Y-%m-%d %H:%M')} ({tz_label})"
     if not render_html:
         return rendered
-    return Markup(
-        f'<span class="js-local-time" data-utc="{utc_dt.isoformat()}">{escape(rendered)}</span>'
-    )
+    return Markup(escape(rendered))

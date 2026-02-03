@@ -43,13 +43,13 @@
         </div>
         <div class="col-md-4">
           <label class="form-label">Default timezone</label>
-          <input class="form-control" name="timezone_name" list="timezone-options" value="{{ settings.timezone_name or timezone_label }}" placeholder="e.g. America/New_York" required autocomplete="off">
+          <input class="form-control" name="timezone_name" list="timezone-options" value="{{ settings.timezone_name or timezone_label }}" placeholder="e.g. GMT+4" required autocomplete="off">
           <datalist id="timezone-options">
             {% for zone in timezone_options %}
               <option value="{{ zone }}"></option>
             {% endfor %}
           </datalist>
-          <div class="form-text">Use an IANA timezone like <code>America/New_York</code> or <code>Asia/Dubai</code>. This becomes the fallback when we cannot detect a viewer's local timezone.</div>
+          <div class="form-text">Use a GMT offset like <code>GMT+4</code> or <code>GMT-3</code>. This timezone is used for all server-rendered times and email schedules.</div>
         </div>
         <div class="col-md-4">
           <label class="form-label">Username</label>

@@ -1,9 +1,9 @@
 import secrets
 import re
+import threading
 from datetime import datetime
 from email.utils import parseaddr
 from typing import Optional, Set
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from flask import (current_app, flash, redirect, render_template, request,
                    session, url_for, jsonify)
@@ -18,22 +18,33 @@ from app.utils import (login_required, record_audit, super_admin_required,
                        active_timezone_label)
 
 COMMON_TIMEZONES = [
-    "UTC",
-    "Europe/London",
-    "Europe/Berlin",
-    "Europe/Paris",
-    "Africa/Nairobi",
-    "Asia/Dubai",
-    "Asia/Kolkata",
-    "Asia/Singapore",
-    "Asia/Tokyo",
-    "Australia/Sydney",
-    "America/Toronto",
-    "America/New_York",
-    "America/Chicago",
-    "America/Denver",
-    "America/Los_Angeles",
-    "America/Sao_Paulo",
+    "GMT-12",
+    "GMT-11",
+    "GMT-10",
+    "GMT-9",
+    "GMT-8",
+    "GMT-7",
+    "GMT-6",
+    "GMT-5",
+    "GMT-4",
+    "GMT-3",
+    "GMT-2",
+    "GMT-1",
+    "GMT+0",
+    "GMT+1",
+    "GMT+2",
+    "GMT+3",
+    "GMT+4",
+    "GMT+5",
+    "GMT+6",
+    "GMT+7",
+    "GMT+8",
+    "GMT+9",
+    "GMT+10",
+    "GMT+11",
+    "GMT+12",
+    "GMT+13",
+    "GMT+14",
 ]
 
 
@@ -218,10 +229,8 @@ def system_settings():
         results_body = request.form.get('results_body', '').strip()
         timezone_name = request.form.get('timezone_name', '').strip() or settings.timezone_name or 'UTC'
 
-        try:
-            ZoneInfo(timezone_name)
-        except ZoneInfoNotFoundError:
-            flash('Invalid timezone name. Use values such as America/New_York or Asia/Dubai.', 'danger')
+        if not timezone_name.upper().startswith(("GMT", "UTC")):
+            flash('Invalid timezone. Use GMT offsets like GMT+4 or GMT-3.', 'danger')
             return redirect(url_for('admin.system_settings'))
 
         settings.smtp_host = host or settings.smtp_host
@@ -894,23 +903,36 @@ def send_invitations(election_id):
         flash('No pending invitations to send.', 'info')
         return redirect(url_for('admin.manage_invitations', election_id=election.id))
 
-    sent_count = 0
-    reserved: Set[str] = set()
-    for invitation in unsent:
-        # Generate a new key per invite so only hashes exist in the DB.
-        new_key = _generate_unique_key(election, reserved)
-        invitation.set_key(new_key)
-        invitation.last_generated_key = new_key
-        reserved.add(new_key)
-        if not _send_invite_email(invitation, election, new_key):
-            continue
-        invitation.sent_at = datetime.utcnow()
-        db.session.add(invitation)
-        sent_count += 1
-    db.session.commit()
-    if sent_count:
-        record_audit('invitations_sent', f'Sent {sent_count} invitation(s) for {election.name}', election_id=election.id)
-    flash(f'Sent {sent_count} invitations.', 'success')
+    invitation_ids = [inv.id for inv in unsent]
+    app = current_app._get_current_object()
+
+    def _run_bulk_invites() -> None:
+        with app.app_context():
+            election_obj = Election.query.get(election.id)
+            if not election_obj:
+                return
+            reserved: Set[str] = set()
+            sent_count = 0
+            for invitation_id in invitation_ids:
+                invitation = VoterInvitation.query.get(invitation_id)
+                if not invitation or invitation.sent_at or not invitation.email:
+                    continue
+                new_key = _generate_unique_key(election_obj, reserved)
+                invitation.set_key(new_key)
+                invitation.last_generated_key = new_key
+                reserved.add(new_key)
+                if not _send_invite_email(invitation, election_obj, new_key):
+                    continue
+                invitation.sent_at = datetime.utcnow()
+                db.session.add(invitation)
+                sent_count += 1
+            db.session.commit()
+            if sent_count:
+                record_audit('invitations_sent', f'Sent {sent_count} invitation(s) for {election_obj.name}', election_id=election_obj.id)
+            db.session.remove()
+
+    threading.Thread(target=_run_bulk_invites, daemon=True).start()
+    flash(f'Queued {len(invitation_ids)} invitations for background delivery.', 'success')
     return redirect(url_for('admin.manage_invitations', election_id=election.id))
 
 
@@ -930,16 +952,31 @@ def send_reminders(election_id):
         flash('No reminders to send.', 'info')
         return redirect(url_for('admin.manage_invitations', election_id=election.id))
 
-    for invitation in pending:
-        # Reminder emails intentionally do not reveal whether we know they voted.
-        if not _send_reminder_email(invitation, election):
-            continue
-        invitation.reminder_sent_at = datetime.utcnow()
-        db.session.add(invitation)
-    db.session.commit()
-    if pending:
-        record_audit('reminders_sent', f'Sent {len(pending)} reminder(s) for {election.name}', election_id=election.id)
-    flash(f'Sent {len(pending)} reminders.', 'success')
+    invitation_ids = [inv.id for inv in pending]
+    app = current_app._get_current_object()
+
+    def _run_bulk_reminders() -> None:
+        with app.app_context():
+            election_obj = Election.query.get(election.id)
+            if not election_obj:
+                return
+            sent_count = 0
+            for invitation_id in invitation_ids:
+                invitation = VoterInvitation.query.get(invitation_id)
+                if not invitation or invitation.used or invitation.reminder_sent_at or not invitation.email:
+                    continue
+                if not _send_reminder_email(invitation, election_obj):
+                    continue
+                invitation.reminder_sent_at = datetime.utcnow()
+                db.session.add(invitation)
+                sent_count += 1
+            db.session.commit()
+            if sent_count:
+                record_audit('reminders_sent', f'Sent {sent_count} reminder(s) for {election_obj.name}', election_id=election_obj.id)
+            db.session.remove()
+
+    threading.Thread(target=_run_bulk_reminders, daemon=True).start()
+    flash(f'Queued {len(invitation_ids)} reminders for background delivery.', 'success')
     return redirect(url_for('admin.manage_invitations', election_id=election.id))
 
 
