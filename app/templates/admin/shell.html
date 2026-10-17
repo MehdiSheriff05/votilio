@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+{% from '_macros.html' import icon, csrf %}
+{% block title %}{% block page_title %}Admin{% endblock %} · Votilio{% endblock %}
+{% block body %}
+{% set nav = nav|default('elections') %}
+<div class="app">
+  <aside class="sidebar" aria-label="Main">
+    <a class="sb-brand" href="{{ url_for('admin.dashboard') }}"><span class="logo">{{ icon('check') }}</span>Votilio</a>
+    <button type="button" class="btn btn-sm sb-search" data-palette>{{ icon('search') }}Search<span class="kbd">⌘K</span></button>
+    <nav>
+      <a class="sb-link {{ 'active' if nav == 'elections' }}" href="{{ url_for('admin.dashboard') }}">{{ icon('vote') }}Elections</a>
+      <a class="sb-link {{ 'active' if nav in ('email','general','admins','logs') }}" href="{{ url_for('admin.system_settings') if session.is_super_admin else url_for('admin.audit_logs') }}">{{ icon('sliders') }}Settings</a>
+    </nav>
+    <div class="sb-spacer"></div>
+    <div class="sb-foot">
+      <span class="avatar">{{ (session.admin_name or '?')[:2]|upper }}</span>
+      <div class="who truncate"><b class="truncate">{{ session.admin_name }}</b><span>{{ 'Super admin' if session.is_super_admin else 'Admin' }}</span></div>
+      <button type="button" class="btn btn-ghost btn-icon btn-sm" data-theme-toggle aria-label="Toggle theme"><svg class="ic"><use href="#i-sun"/></svg></button>
+      <button type="submit" form="logout-form" class="btn btn-ghost btn-icon btn-sm" aria-label="Sign out">{{ icon('logout') }}</button>
+    </div>
+  </aside>
+  <div class="main">
+    <header class="topbar">
+      <a class="mobile-brand" href="{{ url_for('admin.dashboard') }}"><span class="logo">{{ icon('check') }}</span>Votilio</a>
+      <nav class="crumbs" aria-label="Breadcrumb">{% block crumbs %}{% endblock %}</nav>
+      <div class="grow"></div>
+      <button type="button" class="btn btn-ghost btn-icon btn-sm only-mobile" data-palette aria-label="Search">{{ icon('search') }}</button>
+      <button type="button" class="btn btn-ghost btn-icon btn-sm only-mobile" data-theme-toggle aria-label="Toggle theme"><svg class="ic"><use href="#i-sun"/></svg></button>
+      <button type="submit" form="logout-form" class="btn btn-ghost btn-icon btn-sm only-mobile" aria-label="Sign out">{{ icon('logout') }}</button>
+    </header>
+    <main class="page {% block page_class %}{% endblock %}" id="main">{% block content %}{% endblock %}</main>
+  </div>
+  <nav class="tabbar" aria-label="Primary">
+    <a href="{{ url_for('admin.dashboard') }}" class="{{ 'active' if nav == 'elections' }}">{{ icon('vote') }}Elections</a>
+    <button type="button" data-palette>{{ icon('search') }}Search</button>
+    <a href="{{ url_for('admin.system_settings') if session.is_super_admin else url_for('admin.audit_logs') }}" class="{{ 'active' if nav in ('email','general','admins','logs') }}">{{ icon('sliders') }}Settings</a>
+  </nav>
+</div>
+<form id="logout-form" method="post" action="{{ url_for('admin.logout') }}" hidden>{{ csrf() }}</form>
+<dialog id="palette" aria-label="Command palette"><input class="input" type="text" placeholder="Jump to an election or setting…" autocomplete="off" aria-label="Search"><div class="pal-list" role="listbox"></div></dialog>
+<script type="application/json" id="palette-data">{{ {'elections': palette_elections|default([]), 'super': session.is_super_admin}|tojson }}</script>
+{% endblock %}

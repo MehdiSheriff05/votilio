@@ -1,0 +1,8 @@
+{% from '_macros.html' import icon %}
+<dialog id="import-dialog" class="dlg-full" data-modal-strict aria-labelledby="import-title">
+  <div class="dlg-head" style="padding-bottom:12px;border-bottom:1px solid var(--border)">
+    <h2 id="import-title" data-import-title>Import</h2>
+    <button type="button" class="btn btn-ghost btn-icon btn-sm" data-close aria-label="Close">{{ icon('x') }}</button>
+  </div>
+  <div id="csv-mount" style="flex:1;min-height:0;display:flex;flex-direction:column"></div>
+</dialog>

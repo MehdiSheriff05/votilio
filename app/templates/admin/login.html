@@ -1,20 +1,20 @@
 {% extends 'base.html' %}
-{% block content %}
-<div class="row justify-content-center">
-  <div class="col-md-4">
-    <h2 class="mb-3">Admin Login</h2>
-    <form method="post">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <div class="mb-3">
-        <label class="form-label">Username</label>
-        <input class="form-control" name="username" required>
-      </div>
-      <div class="mb-3">
-        <label class="form-label">Password</label>
-        <input type="password" class="form-control" name="password" required>
-      </div>
-      <button class="btn btn-primary w-100" type="submit">Login</button>
+{% from '_macros.html' import icon, csrf %}
+{% block title %}Sign in · Votilio{% endblock %}
+{% block body %}
+<main class="auth-wrap">
+  <div class="auth-card">
+    <div class="brand"><span class="logo">{{ icon('check') }}</span>Votilio</div>
+    <form class="card" method="post">
+      {{ csrf() }}
+      <h1 style="font-size:19px;margin-bottom:4px">Sign in</h1>
+      <p class="muted" style="margin-bottom:18px">Admin console</p>
+      <div class="field"><label class="label" for="username">Username</label><input class="input" id="username" name="username" value="{{ username }}" required autofocus autocomplete="username" autocapitalize="off" spellcheck="false"></div>
+      <div class="field"><label class="label" for="password">Password</label>
+        <div class="input-group"><input class="input" id="password" name="password" type="password" required autocomplete="current-password"><button type="button" class="btn btn-icon" data-reveal="#password" aria-label="Show password"><svg class="ic"><use href="#i-eye"/></svg></button></div></div>
+      <button class="btn btn-primary btn-block" style="margin-top:20px;height:40px" type="submit">Sign in</button>
     </form>
+    <p class="faint" style="text-align:center;margin-top:16px;font-size:12.5px">Voting? Use the link from your invitation email.</p>
   </div>
-</div>
+</main>
 {% endblock %}

@@ -1,0 +1,55 @@
+{% extends 'admin/workspace.html' %}
+{% from '_macros.html' import icon, csrf, photo %}
+{% block page_title %}{{ election.name }} · Results{% endblock %}
+{% block ws_content %}
+<div class="stack" style="{{ brand_style(election) }}">
+  <div class="card">
+    <div class="card-body row-flex" style="flex-wrap:wrap">
+      <div class="grow" style="min-width:220px">
+        <h3>Turnout</h3>
+        <div class="progress" style="margin-top:10px" role="progressbar" aria-valuenow="{{ stats.turnout }}" aria-valuemin="0" aria-valuemax="100"><i style="width: {{ stats.turnout }}%"></i></div>
+        <p class="muted" style="margin-top:8px"><b style="color:var(--text)">{{ stats.voted }}</b> of {{ stats.voters }} invited voters have voted ({{ stats.turnout }}%).</p>
+      </div>
+      <a class="btn" href="{{ url_for('admin.results_csv', election_id=election.id) }}">{{ icon('download') }}Export CSV</a>
+    </div>
+  </div>
+
+  <div class="card">
+    <form method="post" action="{{ url_for('admin.publish_results', election_id=election.id) }}" data-async data-reload>
+      {{ csrf() }}
+      <div class="card-body">
+        <div class="row-flex">
+          <div class="grow"><h3>Public results page</h3><p class="muted" style="margin-top:2px">Anyone with the link can see the final tally. Nothing about individual voters is shown.</p></div>
+          {% if election.results_public %}
+          <input type="hidden" name="action" value="unpublish"><button class="btn" type="submit">Turn off</button>
+          {% else %}
+          <input type="hidden" name="action" value="publish"><button class="btn btn-primary" type="submit">Publish results</button>
+          {% endif %}
+        </div>
+        {% if public_results_url %}
+        <div class="copy-field" style="margin-top:14px"><input class="input mono" id="public-link" readonly value="{{ public_results_url }}" aria-label="Public results link"><button type="button" class="btn" data-copy="#public-link">{{ icon('copy') }}Copy</button><a class="btn btn-icon" href="{{ public_results_url }}" target="_blank" rel="noopener" aria-label="Open">{{ icon('external') }}</a></div>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+
+  {% for block in summary %}
+  <section class="card">
+    <div class="card-head"><h2>{{ block.position.name }}</h2><span class="faint">{{ block.total_votes }} vote{{ '' if block.total_votes == 1 else 's' }}</span></div>
+    <div style="padding:8px 0">
+      {% for item in block.candidates|sort(attribute='count', reverse=True) %}
+      {% set pct = (100 * item.count / block.total_votes)|round(1) if block.total_votes else 0 %}
+      <div class="res-row {{ 'win' if item.candidate in block.winners }}">
+        <div class="nm">{{ photo(item.candidate) }}<span class="truncate">{{ item.candidate.name }}</span>{% if item.candidate in block.winners %}<span class="win-tag">{{ icon('check') }}{{ 'Leading' if block.winners|length == 1 and not election.status() == 'closed' else ('Tied' if block.winners|length > 1 else 'Winner') }}</span>{% endif %}</div>
+        <div class="res-bar"><i style="width: {{ pct }}%"></i></div>
+        <div class="num"><b>{{ item.count }}</b> · {{ pct }}%</div>
+      </div>
+      {% else %}<div class="faint" style="padding:10px 18px">No candidates in this position.</div>
+      {% endfor %}
+    </div>
+  </section>
+  {% else %}
+  <div class="card empty"><div class="ic-wrap">{{ icon('chart') }}</div><h3>No ballot yet</h3><p>Add positions and candidates in Setup, then results appear here as votes come in.</p></div>
+  {% endfor %}
+</div>
+{% endblock %}

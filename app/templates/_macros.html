@@ -1,0 +1,11 @@
+{% macro icon(name, cls='') -%}<svg class="ic {{ cls }}" aria-hidden="true"><use href="#i-{{ name }}"/></svg>{%- endmacro %}
+{% macro csrf() -%}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{%- endmacro %}
+{% macro status_pill(status) -%}<span class="pill pill-{{ status }}">{{ {'live': 'Live', 'scheduled': 'Scheduled', 'closed': 'Closed', 'paused': 'Paused'}.get(status, status|title) }}</span>{%- endmacro %}
+{% macro initials(name) -%}{{ ((name or '?').split()|map('first')|join(''))[:2]|upper }}{%- endmacro %}
+{% macro photo(candidate, cls='avatar') -%}
+  {%- if candidate.photo_url -%}
+    <img class="{{ cls }}" loading="lazy" decoding="async" alt="" src="{{ candidate.photo_url if candidate.photo_url.startswith('http') else url_for('static', filename=candidate.photo_url) }}">
+  {%- else -%}
+    <span class="{{ cls }}">{{ initials(candidate.name) }}</span>
+  {%- endif -%}
+{%- endmacro %}

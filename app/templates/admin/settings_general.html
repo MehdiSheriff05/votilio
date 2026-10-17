@@ -1,0 +1,17 @@
+{% extends 'admin/settings_shell.html' %}
+{% from '_macros.html' import icon, csrf %}
+{% block page_title %}General settings{% endblock %}
+{% block crumb_title %}General{% endblock %}
+{% block settings_content %}
+<div class="page-head"><div class="grow"><h1>General</h1><p>Defaults that apply across every election.</p></div></div>
+<form class="card" method="post" action="{{ url_for('admin.general_settings') }}" data-async data-reload>
+  {{ csrf() }}
+  <div class="card-body">
+    <div class="field"><label class="label" for="timezone_name">Display timezone</label>
+      <input class="input" id="timezone_name" name="timezone_name" list="tz-list" value="{{ settings.timezone_name }}" autocomplete="off">
+      <datalist id="tz-list">{% for tz in timezone_options %}<option value="{{ tz }}">{% endfor %}</datalist>
+      <span class="hint">A zone like <span class="mono">Asia/Dubai</span> or an offset like <span class="mono">GMT+4</span>. Used for every date you enter or see, and in emails.</span></div>
+  </div>
+  <div class="card-foot"><button class="btn btn-primary" type="submit">Save</button></div>
+</form>
+{% endblock %}

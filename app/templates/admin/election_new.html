@@ -1,0 +1,29 @@
+{% extends 'admin/shell.html' %}
+{% from '_macros.html' import icon, csrf %}
+{% set nav = 'elections' %}
+{% block page_title %}New election{% endblock %}
+{% block page_class %}page-narrow{% endblock %}
+{% block crumbs %}<a href="{{ url_for('admin.dashboard') }}">Elections</a><span class="sep">/</span><b>New election</b>{% endblock %}
+{% block content %}
+<div class="page-head"><div class="grow"><h1>New election</h1><p>You can change everything later. Positions, candidates and voters come next.</p></div></div>
+<form method="post" class="card">
+  {{ csrf() }}
+  <div class="card-body">
+    <div class="field"><label class="label" for="name">Name</label>
+      <input class="input" id="name" name="name" required maxlength="128" autofocus placeholder="Student Council Elections 2026" value="{{ form.get('name', '') }}"></div>
+    <div class="field"><label class="label" for="access_code">Election code</label>
+      <input class="input mono" id="access_code" name="access_code" maxlength="32" placeholder="Leave blank to generate one" value="{{ form.get('access_code', '') }}" autocapitalize="off" spellcheck="false">
+      <span class="hint">Voters enter this together with their personal 6-digit key. It's also pre-filled in the link we email them.</span></div>
+    <div class="field"><label class="label" for="description">Description <span class="faint">(optional)</span></label>
+      <textarea class="textarea" id="description" name="description" rows="2" placeholder="Shown to voters on the ballot">{{ form.get('description', '') }}</textarea></div>
+    <div class="form-grid">
+      <div class="field"><label class="label" for="start_time">Voting opens</label><input class="input" type="datetime-local" id="start_time" name="start_time" value="{{ form.get('start_time', '') }}"></div>
+      <div class="field"><label class="label" for="end_time">Voting closes</label><input class="input" type="datetime-local" id="end_time" name="end_time" value="{{ form.get('end_time', '') }}"></div>
+      <span class="hint span-2">Times are in {{ timezone_label }}. Leave both empty to control voting manually with Pause / Resume.</span>
+    </div>
+    <div class="field"><label class="label" for="theme_primary">Brand colour</label>
+      <div class="input-group"><input class="input" type="color" id="theme_primary" name="theme_primary" value="{{ form.get('theme_primary') or '#7b7bff' }}" style="max-width:72px"><span class="hint" style="align-self:center">Used for the voter's ballot.</span></div></div>
+  </div>
+  <div class="card-foot"><a class="btn btn-ghost" href="{{ url_for('admin.dashboard') }}">Cancel</a><button class="btn btn-primary" type="submit">Create election</button></div>
+</form>
+{% endblock %}

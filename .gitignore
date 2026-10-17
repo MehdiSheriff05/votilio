@@ -5,6 +5,7 @@ __pycache__/
 .DS_Store
 .env
 .env.*
+!.env.example
 instance/*.db
 instance/*.sqlite3
 *.log
@@ -22,3 +23,9 @@ __pycache__/
 *.py[cod]
 *.egg-info/
 *.sqlite3
+app/static/uploads/*
+!app/static/uploads/.gitkeep
+node_modules/
+app/static/dist/
+frontend/dist/
+instance/

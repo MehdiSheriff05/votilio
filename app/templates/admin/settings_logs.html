@@ -1,0 +1,20 @@
+{% extends 'admin/settings_shell.html' %}
+{% from '_macros.html' import icon, csrf %}
+{% block page_title %}Audit log{% endblock %}
+{% block crumb_title %}Audit log{% endblock %}
+{% block settings_content %}
+<div class="page-head"><div class="grow"><h1>Audit log</h1><p>Latest 300 events across all elections.</p></div>
+  {% if session.is_super_admin and logs %}<div class="page-actions"><form method="post" action="{{ url_for('admin.clear_audit_logs') }}" data-async data-reload data-confirm="Permanently clear the whole audit log?" data-confirm-title="Clear audit log" data-confirm-ok="Clear log">{{ csrf() }}<button class="btn btn-danger btn-sm" type="submit">{{ icon('trash') }}Clear</button></form></div>{% endif %}</div>
+<form class="toolbar" method="get"><div class="input-icon">{{ icon('search') }}<input class="input" type="search" name="q" value="{{ q }}" placeholder="Filter events" aria-label="Filter events"></div></form>
+{% if logs %}
+<div class="tbl-wrap"><table class="tbl">
+  <thead><tr><th>When</th><th>Event</th><th>Details</th><th>Admin</th></tr></thead>
+  <tbody>{% for log in logs %}<tr>
+    <td class="muted" style="white-space:nowrap">{{ log.created_at|display_time }}</td>
+    <td><span class="pill pill-plain">{{ log.event_type.replace('_', ' ') }}</span></td>
+    <td>{{ log.message }}</td>
+    <td class="muted">{{ log.admin.username if log.admin else '—' }}</td>
+  </tr>{% endfor %}</tbody>
+</table></div>
+{% else %}<div class="card empty"><div class="ic-wrap">{{ icon('list') }}</div><h3>Nothing here</h3><p>{{ 'No events match your filter.' if q else 'Actions like sending invitations or editing a ballot show up here.' }}</p></div>{% endif %}
+{% endblock %}

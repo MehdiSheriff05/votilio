@@ -1,0 +1,121 @@
+{% extends 'admin/workspace.html' %}
+{% from '_macros.html' import icon, csrf, photo %}
+{% block page_title %}{{ election.name }} · Setup{% endblock %}
+{% block ws_content %}
+<div class="stack">
+<form class="card" method="post" action="{{ url_for('admin.setup', election_id=election.id) }}" data-async data-dirty data-swap="ws-head,ws-stats">
+  {{ csrf() }}
+  <div class="card-head"><h2>Details</h2></div>
+  <div class="card-body">
+    <div class="form-grid">
+      <div class="field"><label class="label" for="name">Name</label><input class="input" id="name" name="name" required maxlength="128" value="{{ election.name }}"></div>
+      <div class="field"><label class="label" for="access_code">Election code</label><input class="input mono" id="access_code" name="access_code" required maxlength="32" value="{{ election.access_code or '' }}" autocapitalize="off" spellcheck="false"></div>
+      <div class="field span-2"><label class="label" for="description">Description</label><textarea class="textarea" id="description" name="description" rows="2" placeholder="Shown to voters on the ballot">{{ election.description or '' }}</textarea></div>
+      <div class="field"><label class="label" for="start_time">Voting opens</label><input class="input" type="datetime-local" id="start_time" name="start_time" value="{{ start_value }}"></div>
+      <div class="field"><label class="label" for="end_time">Voting closes</label><input class="input" type="datetime-local" id="end_time" name="end_time" value="{{ end_value }}"></div>
+      <span class="hint span-2">Times are in {{ timezone_label }}. Leave empty to open and close manually with Pause / Resume.</span>
+    </div>
+  </div>
+  <div class="card-head" style="border-top:1px solid var(--border)"><h2>Ballot branding</h2></div>
+  <div class="card-body">
+    <div class="form-grid">
+      <div class="field"><label class="label" for="theme_primary">Primary colour</label><input class="input" type="color" id="theme_primary" name="theme_primary" value="{{ election.theme_primary or '#7b7bff' }}"></div>
+      <div class="field"><label class="label" for="theme_secondary">Secondary <span class="faint">(optional)</span></label><input class="input" type="color" id="theme_secondary" name="theme_secondary" value="{{ election.theme_secondary or election.theme_primary or '#7b7bff' }}"></div>
+      <div class="field span-2"><div class="brand-preview" id="brand-preview" style="{{ brand_style(election) }}"><span class="swatch"></span><span class="muted">Voters see this colour on their ballot, selections and buttons.</span></div></div>
+      <input type="hidden" name="theme_accent" value="{{ election.theme_accent or '' }}">
+    </div>
+  </div>
+</form>
+
+<section data-region="positions-list" aria-labelledby="pos-title">
+  <div class="row-flex" style="margin:var(--s-5) 0 var(--s-3)">
+    <h2 id="pos-title" class="grow">Positions &amp; candidates</h2>
+    <button type="button" class="btn btn-sm" data-csv-open="candidates" data-endpoint="{{ url_for('admin.candidates_import', election_id=election.id) }}" data-template="{{ url_for('admin.candidates_template', election_id=election.id) }}" data-positions='{{ positions|map(attribute="name")|list|tojson }}'>{{ icon('upload') }}Import CSV</button>
+    <button type="button" class="btn btn-sm btn-primary" data-open="#position-dialog" data-mode="create" data-title="Add position" data-action="{{ url_for('admin.create_position', election_id=election.id) }}">{{ icon('plus') }}Add position</button>
+  </div>
+  {% if positions %}
+  <div data-sortable data-reorder-url="{{ url_for('admin.reorder_positions', election_id=election.id) }}">
+  {% for p in positions %}
+    <div class="pos-card" data-sort-item data-id="{{ p.id }}">
+      <div class="pos-head">
+        <span class="grip" title="Drag to reorder" aria-label="Drag to reorder">{{ icon('grip') }}</span>
+        <div class="grow"><h3 class="truncate">{{ p.name }}</h3>{% if p.description %}<div class="faint truncate" style="font-size:12.5px">{{ p.description }}</div>{% endif %}</div>
+        <span class="pill pill-plain {{ 'pill-warn' if p.candidates|length >= p.candidate_slots }}">{{ p.candidates|length }} / {{ p.candidate_slots }} candidates</span>
+        <button type="button" class="btn btn-ghost btn-icon btn-sm" aria-label="Edit position" data-open="#position-dialog" data-mode="edit" data-title="Edit position" data-action="{{ url_for('admin.update_position', position_id=p.id) }}" data-fill='{{ {"name": p.name, "description": p.description or "", "candidate_slots": p.candidate_slots}|tojson }}'>{{ icon('edit') }}</button>
+        <form method="post" action="{{ url_for('admin.delete_position', position_id=p.id) }}" data-async data-swap="positions-list,ws-stats" data-confirm="Delete “{{ p.name }}” and its {{ p.candidates|length }} candidate(s)? This can't be undone." data-confirm-title="Delete position" data-confirm-ok="Delete">{{ csrf() }}<button class="btn btn-ghost btn-icon btn-sm" aria-label="Delete position" type="submit">{{ icon('trash') }}</button></form>
+      </div>
+      <div class="cand-list" data-sortable data-reorder-url="{{ url_for('admin.reorder_candidates', position_id=p.id) }}">
+        {% for c in p.candidates %}
+        <div class="cand" data-sort-item data-id="{{ c.id }}">
+          <span class="grip" title="Drag to reorder" aria-label="Drag to reorder">{{ icon('grip') }}</span>
+          {{ photo(c) }}
+          <div class="grow"><div class="name truncate">{{ c.name }}</div>{% if c.description %}<div class="bio truncate">{{ c.description }}</div>{% endif %}</div>
+          <button type="button" class="btn btn-ghost btn-icon btn-sm" aria-label="Edit {{ c.name }}" data-open="#candidate-dialog" data-mode="edit" data-title="Edit candidate" data-action="{{ url_for('admin.update_candidate', candidate_id=c.id) }}" data-photo="{{ (c.photo_url if c.photo_url and c.photo_url.startswith('http') else url_for('static', filename=c.photo_url)) if c.photo_url else '' }}" data-fill='{{ {"name": c.name, "description": c.description or "", "position_id": p.id}|tojson }}'>{{ icon('edit') }}</button>
+          <form method="post" action="{{ url_for('admin.delete_candidate', candidate_id=c.id) }}" data-async data-swap="positions-list,ws-stats" data-confirm="Remove {{ c.name }} from {{ p.name }}?" data-confirm-title="Remove candidate" data-confirm-ok="Remove">{{ csrf() }}<button class="btn btn-ghost btn-icon btn-sm" aria-label="Delete {{ c.name }}" type="submit">{{ icon('trash') }}</button></form>
+        </div>
+        {% endfor %}
+      </div>
+      {% if p.candidates|length < p.candidate_slots %}
+      <button type="button" class="btn btn-sm add-cand" data-open="#candidate-dialog" data-mode="create" data-title="Add candidate to {{ p.name }}" data-action="{{ url_for('admin.create_candidate', position_id=p.id) }}" data-fill='{{ {"position_id": p.id}|tojson }}'>{{ icon('plus') }}Add candidate</button>
+      {% endif %}
+    </div>
+  {% endfor %}
+  </div>
+  <div data-positions-json hidden>{{ positions|map(attribute="name")|list|tojson }}</div>
+  {% else %}
+  <div class="card empty">
+    <div class="ic-wrap">{{ icon('vote') }}</div>
+    <h3>Build the ballot</h3>
+    <p>Add positions like President or Treasurer, then add the candidates running for each. Importing from a spreadsheet is the fastest way.</p>
+    <div class="row-flex" style="justify-content:center;margin-top:16px">
+      <button type="button" class="btn btn-primary" style="margin:0" data-open="#position-dialog" data-mode="create" data-title="Add position" data-action="{{ url_for('admin.create_position', election_id=election.id) }}">{{ icon('plus') }}Add position</button>
+      <button type="button" class="btn" style="margin:0" data-csv-open="candidates" data-endpoint="{{ url_for('admin.candidates_import', election_id=election.id) }}" data-template="{{ url_for('admin.candidates_template', election_id=election.id) }}" data-positions="[]">{{ icon('upload') }}Import CSV</button>
+    </div>
+  </div>
+  {% endif %}
+</section>
+
+{% if session.is_super_admin %}
+<form class="card danger-zone" method="post" action="{{ url_for('admin.delete_election', election_id=election.id) }}" data-async data-nav="{{ url_for('admin.dashboard') }}" data-confirm="This permanently deletes “{{ election.name }}”, including its voters, candidates and every recorded vote." data-confirm-title="Delete election" data-confirm-ok="Delete election">
+  {{ csrf() }}
+  <div class="card-body row-flex"><div class="grow"><h3>Delete this election</h3><p class="muted" style="margin-top:2px">Removes the ballot, voter list and all votes. Super admins only.</p></div><button class="btn btn-danger" type="submit">{{ icon('trash') }}Delete election</button></div>
+</form>
+{% endif %}
+</div>
+
+<div class="sticky-save" id="save-bar" role="region" aria-label="Unsaved changes"><span>Unsaved changes</span><button type="button" class="btn btn-sm btn-ghost" data-discard>Discard</button><button type="button" class="btn btn-sm btn-primary" data-save>Save changes</button></div>
+
+<dialog id="position-dialog" aria-labelledby="pos-dlg-title">
+  <form class="dlg" method="post" data-async data-swap="positions-list,ws-stats">
+    {{ csrf() }}
+    <div class="dlg-head"><h2 id="pos-dlg-title" data-dlg-title>Add position</h2><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close aria-label="Close">{{ icon('x') }}</button></div>
+    <div class="dlg-body">
+      <div class="field"><label class="label" for="pd-name">Position name</label><input class="input" id="pd-name" name="name" required maxlength="128" placeholder="President"></div>
+      <div class="field"><label class="label" for="pd-slots">Maximum candidates</label><input class="input" id="pd-slots" name="candidate_slots" type="number" min="1" max="50" value="1" inputmode="numeric"><span class="hint">Voters pick one candidate per position. This caps how many can run.</span></div>
+      <div class="field"><label class="label" for="pd-desc">Description <span class="faint">(optional)</span></label><textarea class="textarea" id="pd-desc" name="description" rows="2"></textarea></div>
+    </div>
+    <div class="dlg-foot"><button type="button" class="btn" data-close>Cancel</button><button type="submit" class="btn btn-primary">Save</button></div>
+  </form>
+</dialog>
+
+<dialog id="candidate-dialog" aria-labelledby="cand-dlg-title">
+  <form class="dlg" method="post" enctype="multipart/form-data" data-async data-swap="positions-list,ws-stats">
+    {{ csrf() }}
+    <div class="dlg-head"><h2 id="cand-dlg-title" data-dlg-title>Add candidate</h2><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close aria-label="Close">{{ icon('x') }}</button></div>
+    <div class="dlg-body">
+      <div class="field"><label class="label" for="cd-name">Name</label><input class="input" id="cd-name" name="name" required maxlength="128"></div>
+      <div class="field"><label class="label" for="cd-desc">Bio <span class="faint">(optional)</span></label><textarea class="textarea" id="cd-desc" name="description" rows="3" placeholder="A line or two voters will see"></textarea></div>
+      <div class="field"><label class="label" for="cd-photo">Photo <span class="faint">(optional)</span></label>
+        <div class="row-flex"><span data-photo-preview></span><input class="input grow" id="cd-photo" name="photo" type="file" accept="image/png,image/jpeg,image/gif,image/webp" data-preview="[data-photo-preview]"></div>
+        <span class="hint">PNG, JPG, GIF or WEBP, up to 4 MB. We resize it for you.</span></div>
+      <label class="check hide" data-edit-only style="margin-top:12px"><input class="cb" type="checkbox" name="remove_photo"> Remove current photo</label>
+      <div class="field hide" data-edit-only><label class="label" for="cd-pos">Position</label>
+        <select class="select" id="cd-pos" name="position_id">{% for p in positions %}<option value="{{ p.id }}">{{ p.name }}</option>{% endfor %}</select></div>
+    </div>
+    <div class="dlg-foot"><button type="button" class="btn" data-close>Cancel</button><button type="submit" class="btn btn-primary">Save</button></div>
+  </form>
+</dialog>
+{% include 'partials/import_dialog.html' %}
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='dist/csv-editor.js') }}?v={{ asset_v }}" defer></script>{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='dist/csv-editor.css') }}?v={{ asset_v }}">{% endblock %}

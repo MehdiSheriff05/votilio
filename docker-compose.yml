@@ -1,24 +1,57 @@
-version: '3.9'
+name: votilio
 
 services:
-  web:
-    build: .
-    ports:
-      - "8000:8000"
-    env_file:
-      - .env
-    depends_on:
-      - db
   db:
     image: postgres:15
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: votilio
-    ports:
-      - "5432:5432"
+      POSTGRES_USER: ${POSTGRES_USER:-votilio}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-votilio}
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    # No ports are published: only the web container can reach the database.
+
+  web:
+    build: .
+    image: votilio:latest
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-votilio}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-votilio}
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - uploads:/app/app/static/uploads
+    # Bound to localhost: put HTTPS in front (the bundled Caddy profile, or your own nginx).
+    ports:
+      - "127.0.0.1:${WEB_PORT:-8000}:8000"
+
+  caddy:
+    image: caddy:2-alpine
+    profiles: ["proxy"]
+    restart: unless-stopped
+    environment:
+      DOMAIN: ${DOMAIN:-localhost}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
 
 volumes:
   pgdata:
+  uploads:
+  caddy_data:
+  caddy_config:

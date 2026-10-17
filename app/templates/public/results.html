@@ -1,58 +1,20 @@
-{% extends 'base.html' %}
+{% extends 'public/shell.html' %}
+{% from '_macros.html' import icon, photo %}
+{% block page_title %}{{ election.name }} · Results{% endblock %}
+{% block wrap_class %}wide{% endblock %}
 {% block content %}
-{% set primary = election.theme_primary or '#0d6efd' %}
-{% set secondary = election.theme_secondary or '#6610f2' %}
-{% set accent = election.theme_accent or '#f0ad4e' %}
-<style>
-  .results-header {
-    border-left: 4px solid {{ primary }};
-    padding-left: 1rem;
-  }
-  .winner-row {
-    background-color: {{ accent }}20;
-  }
-  .badge-theme {
-    background-color: {{ secondary }};
-  }
-</style>
-<div class="results-header mb-4">
-  <h2>{{ election.name }} Results</h2>
-  <p class="text-muted mb-1">{{ election.description }}</p>
-  <small class="text-muted">Total voters: {{ totals.total }} &middot; Participated: {{ totals.voted }} &middot; Pending: {{ totals.not_voted }}</small>
-</div>
-{% for bucket in summary %}
-  <div class="card mb-4">
-    <div class="card-body">
-      <div class="d-flex justify-content-between align-items-center">
-        <div>
-          <h4 class="mb-0">{{ bucket.position.name }}</h4>
-          <small class="text-muted">{{ bucket.position.description }}</small>
-        </div>
-        {% if bucket.winners %}
-          <span class="badge badge-theme">Winner{{ 's' if bucket.winners|length > 1 else '' }}: {{ bucket.winners|map(attribute='name')|join(', ') }}</span>
-        {% else %}
-          <span class="badge bg-secondary">No votes yet</span>
-        {% endif %}
-      </div>
-      <div class="table-responsive mt-3">
-        <table class="table align-middle mb-0">
-          <thead>
-            <tr>
-              <th>Candidate</th>
-              <th class="text-end">Votes</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for row in bucket.candidates %}
-              <tr class="{{ 'winner-row' if row.candidate in bucket.winners else '' }}">
-                <td>{{ row.candidate.name }}</td>
-                <td class="text-end fw-bold">{{ row.count }}</td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    </div>
+<div class="v-hero" style="text-align:left"><h1>{{ election.name }}</h1><p>Results · {{ totals.voted }} of {{ totals.total }} voters took part ({{ totals.turnout }}%)</p></div>
+{% for block in summary %}
+<section class="v-card" style="padding:6px 0 10px;margin-bottom:14px">
+  <div class="card-head" style="border:0"><h2>{{ block.position.name }}</h2><span class="faint">{{ block.total_votes }} vote{{ '' if block.total_votes == 1 else 's' }}</span></div>
+  {% for item in block.candidates|sort(attribute='count', reverse=True) %}
+  {% set pct = (100 * item.count / block.total_votes)|round(1) if block.total_votes else 0 %}
+  <div class="res-row {{ 'win' if item.candidate in block.winners }}">
+    <div class="nm">{{ photo(item.candidate) }}<span class="truncate">{{ item.candidate.name }}</span>{% if item.candidate in block.winners %}<span class="win-tag">{{ icon('check') }}{{ 'Tied' if block.winners|length > 1 else 'Winner' }}</span>{% endif %}</div>
+    <div class="res-bar"><i style="width: {{ pct }}%"></i></div>
+    <div class="num"><b>{{ item.count }}</b> · {{ pct }}%</div>
   </div>
+  {% endfor %}
+</section>
 {% endfor %}
 {% endblock %}
