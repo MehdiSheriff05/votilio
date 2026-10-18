@@ -1,0 +1,23 @@
+{% extends 'public/shell.html' %}
+{% from '_macros.html' import icon, csrf, initials, photo %}
+{% block page_title %}{{ election.name }} · Review{% endblock %}
+{% block content %}
+<div class="v-hero" style="text-align:left;margin-bottom:18px">
+  <h1>Review your ballot</h1>
+  <p>Check your choices. Once you submit, your vote is final and can't be changed.</p>
+</div>
+<div class="v-card">
+  {% for row in rows %}
+  <div class="review-row">
+    <div class="grow"><div class="pos">{{ row.position.name }}</div>
+      {% if row.candidate %}<div class="ch">{{ row.candidate.name }}</div>{% else %}<div class="ch none">No selection</div>{% endif %}</div>
+    {% if row.candidate %}{{ photo(row.candidate, 'avatar avatar-lg') }}{% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% if rows|selectattr('candidate', 'none')|list %}<div class="notice notice-warn" style="margin-top:14px">{{ icon('alert') }}<div>You haven't chosen anyone for {{ rows|selectattr('candidate', 'none')|list|length }} position(s). That's allowed, but you can't come back later.</div></div>{% endif %}
+<div class="row-flex" style="margin-top:20px">
+  <a class="btn btn-lg grow" style="flex:1" href="{{ url_for('public.ballot') }}">{{ icon('arrow-left') }}Edit choices</a>
+  <form method="post" action="{{ url_for('public.submit_ballot') }}" style="flex:1.4" data-no-loading>{{ csrf() }}<button class="btn btn-brand btn-lg btn-block" type="submit">Submit ballot</button></form>
+</div>
+{% endblock %}

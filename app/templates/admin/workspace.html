@@ -1,0 +1,32 @@
+{% extends 'admin/shell.html' %}
+{% from '_macros.html' import icon, csrf, status_pill %}
+{% set nav = 'elections' %}
+{% block crumbs %}<a href="{{ url_for('admin.dashboard') }}">Elections</a><span class="sep">/</span><b>{{ election.name }}</b>{% endblock %}
+{% block content %}
+<div data-region="ws-head">
+  <div class="ws-head">
+    <h1 class="truncate">{{ election.name }}</h1>
+    {{ status_pill(stats.status) }}
+    {% if election.access_code %}<button type="button" class="code-chip" data-copy="{{ election.access_code }}" title="Copy election code">{{ election.access_code }} {{ icon('copy') }}</button>{% endif %}
+    <div class="grow"></div>
+    <form method="post" action="{{ url_for('admin.toggle_election', election_id=election.id) }}" data-async data-swap="ws-head,ws-stats">
+      {{ csrf() }}
+      <button class="btn btn-sm" type="submit">{% if election.is_active %}{{ icon('pause') }}Pause voting{% else %}{{ icon('play') }}Resume voting{% endif %}</button>
+    </form>
+  </div>
+</div>
+<div data-region="ws-stats">
+  <div class="stat-strip">
+    <div class="stat"><div class="k">Voters</div><div class="v">{{ stats.voters }}</div></div>
+    <div class="stat"><div class="k">Invited</div><div class="v">{{ stats.sent }}<small>of {{ stats.voters }}</small></div></div>
+    <div class="stat"><div class="k">Voted</div><div class="v">{{ stats.voted }}<small>{{ stats.turnout }}%</small></div></div>
+    <div class="stat"><div class="k">Ballot</div><div class="v">{{ stats.positions }}<small>position{{ '' if stats.positions == 1 else 's' }} · {{ stats.candidates }} candidate{{ '' if stats.candidates == 1 else 's' }}</small></div></div>
+  </div>
+</div>
+<nav class="ws-nav" aria-label="Election sections">
+  <a class="ws-tab {{ 'active' if section == 'setup' }}" href="{{ url_for('admin.setup', election_id=election.id) }}">{{ icon('sliders') }}Setup</a>
+  <a class="ws-tab {{ 'active' if section == 'voters' }}" href="{{ url_for('admin.voters', election_id=election.id) }}">{{ icon('users') }}Voters</a>
+  <a class="ws-tab {{ 'active' if section == 'results' }}" href="{{ url_for('admin.view_results', election_id=election.id) }}">{{ icon('chart') }}Results</a>
+</nav>
+{% block ws_content %}{% endblock %}
+{% endblock %}

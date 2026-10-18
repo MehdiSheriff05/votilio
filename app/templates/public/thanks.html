@@ -1,0 +1,14 @@
+{% extends 'public/shell.html' %}
+{% from '_macros.html' import icon, csrf, initials, photo %}
+{% block page_title %}Vote recorded{% endblock %}
+{% block content %}
+<div class="v-hero" style="margin-top:40px">
+  <div class="done-mark">{{ icon('check') }}</div>
+  <h1>Your vote is in</h1>
+  <p>Thank you for taking part in <b style="color:var(--text)">{{ election.name }}</b>. Your ballot has been recorded anonymously.</p>
+</div>
+<div class="row-flex" style="justify-content:center;margin-top:24px">
+  {% if results_url %}<a class="btn btn-lg" href="{{ results_url }}">{{ icon('chart') }}View results</a>{% endif %}
+  <a class="btn btn-lg" href="{{ url_for('public.vote') }}">Done</a>
+</div>
+{% endblock %}

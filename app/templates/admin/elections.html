@@ -1,0 +1,36 @@
+{% extends 'admin/shell.html' %}
+{% from '_macros.html' import icon, status_pill %}
+{% set nav = 'elections' %}
+{% block page_title %}Elections{% endblock %}
+{% block crumbs %}<b>Elections</b>{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div class="grow"><h1>Elections</h1><p>Create, run and review your elections.</p></div>
+  <div class="page-actions"><a class="btn btn-primary" href="{{ url_for('admin.create_election') }}">{{ icon('plus') }}New election</a></div>
+</div>
+{% if cards %}
+<div class="grid-cards">
+  {% for c in cards %}{% set e = c.election %}{% set s = c.stats %}
+  <a class="e-card" href="{{ url_for('admin.setup', election_id=e.id) }}">
+    <div class="row-flex"><h3 class="grow truncate">{{ e.name }}</h3>{{ status_pill(s.status) }}</div>
+    <div class="meta">
+      <span>{{ icon('users') }} {{ s.voters }} voter{{ '' if s.voters == 1 else 's' }}</span>
+      <span>{{ icon('vote') }} {{ s.positions }} position{{ '' if s.positions == 1 else 's' }}</span>
+      {% if e.end_time %}<span>{{ icon('clock') }} Closes {{ e.end_time|short_time }}</span>{% endif %}
+    </div>
+    <div>
+      <div class="nums"><span>Turnout</span><span><b>{{ s.voted }}</b> / {{ s.voters }} · {{ s.turnout }}%</span></div>
+      <div class="progress" role="progressbar" aria-valuenow="{{ s.turnout }}" aria-valuemin="0" aria-valuemax="100"><i style="width: {{ s.turnout }}%"></i></div>
+    </div>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card empty">
+  <div class="ic-wrap">{{ icon('vote') }}</div>
+  <h3>No elections yet</h3>
+  <p>Set up your first election in a couple of minutes: add positions, candidates and voters, then send invitations.</p>
+  <a class="btn btn-primary" href="{{ url_for('admin.create_election') }}">{{ icon('plus') }}Create your first election</a>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,29 +1,27 @@
 #!/bin/bash
 set -euo pipefail
 
-function wait_for_db() {
+wait_for_db() {
   if [[ -z "${DATABASE_URL:-}" ]]; then
     echo "DATABASE_URL not set; skipping DB wait."
     return
   fi
-  python <<'PY'
-import os, time
-from sqlalchemy import create_engine
-from sqlalchemy.exc import OperationalError
+  python - <<'PY'
+import os, sys, time
+from sqlalchemy import create_engine, text
 
-url = os.environ.get("DATABASE_URL")
-engine = create_engine(url, pool_pre_ping=True)
-for attempt in range(30):
+engine = create_engine(os.environ["DATABASE_URL"], pool_pre_ping=True)
+for attempt in range(1, 31):
     try:
-        with engine.connect():
-            print("Database connection established.")
-            break
-    except OperationalError as exc:
-        wait = 2
-        print(f"Database unavailable ({exc}); retrying in {wait}s...")
-        time.sleep(wait)
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        print("Database ready.")
+        break
+    except Exception as exc:
+        print(f"Waiting for database ({attempt}/30): {type(exc).__name__}")
+        time.sleep(2)
 else:
-    raise SystemExit("Database never became available.")
+    sys.exit("Database never became available.")
 PY
 }
 
@@ -32,5 +30,7 @@ wait_for_db
 echo "Applying database migrations..."
 flask db upgrade
 
-echo "Starting application..."
+flask bootstrap-admin
+
+echo "Starting Votilio..."
 exec "$@"

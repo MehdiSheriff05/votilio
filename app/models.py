@@ -1,3 +1,5 @@
+import hashlib
+import hmac
 from datetime import datetime
 from typing import Optional
 
@@ -46,44 +48,34 @@ class Election(db.Model):
             return False
         return True
 
+    def status(self) -> str:
+        now = datetime.utcnow()
+        if not self.is_active:
+            return "paused"
+        if self.start_time and now < self.start_time:
+            return "scheduled"
+        if self.end_time and now > self.end_time:
+            return "closed"
+        return "live"
+
     def summarize_results(self):
+        counts = dict(
+            db.session.query(Vote.candidate_id, db.func.count(Vote.id))
+            .filter(Vote.election_id == self.id)
+            .group_by(Vote.candidate_id)
+            .all()
+        )
         summary = []
-        for position in sorted(self.positions, key=lambda p: p.order_index):
+        for position in sorted(self.positions, key=lambda p: (p.order_index, p.id)):
             candidate_counts = []
             max_votes = 0
             total_votes = 0
             for candidate in position.candidates:
-                count = Vote.query.filter_by(
-                    election_id=self.id,
-                    position_id=position.id,
-                    candidate_id=candidate.id,
-                ).count()
-                candidate_counts.append({
-                    'candidate': candidate,
-                    'count': count,
-                })
+                count = counts.get(candidate.id, 0)
+                candidate_counts.append({'candidate': candidate, 'count': count})
                 total_votes += count
-                if count > max_votes:
-                    max_votes = count
-            # Sort by votes, highest first for winner selection.
-            candidate_counts.sort(key=lambda item: item['count'], reverse=True)
-            winner = None
-            if position.winner_override_id:
-                winner = next(
-                    (item['candidate'] for item in candidate_counts if item['candidate'].id == position.winner_override_id),
-                    None,
-                )
-                if winner and (winner.is_declined or winner.is_disqualified):
-                    winner = None
-            if not winner:
-                for item in candidate_counts:
-                    candidate = item['candidate']
-                    if item['count'] <= 0:
-                        break
-                    if not candidate.is_declined and not candidate.is_disqualified:
-                        winner = candidate
-                        break
-            winners = [winner] if winner else []
+                max_votes = max(max_votes, count)
+            winners = [item['candidate'] for item in candidate_counts if item['count'] == max_votes and max_votes > 0]
             summary.append({
                 'position': position,
                 'candidates': candidate_counts,
@@ -101,16 +93,9 @@ class Position(db.Model):
     description = db.Column(db.Text, nullable=True)
     candidate_slots = db.Column(db.Integer, default=1, nullable=False)
     order_index = db.Column(db.Integer, nullable=False, default=0)
-    winner_override_id = db.Column(db.Integer, db.ForeignKey('candidate.id'), nullable=True)
 
-    candidates = db.relationship(
-        'Candidate',
-        backref='position',
-        lazy=True,
-        cascade='all, delete-orphan',
-        order_by='Candidate.order_index',
-        foreign_keys='Candidate.position_id',
-    )
+    candidates = db.relationship('Candidate', backref='position', lazy=True, cascade='all, delete-orphan',
+                                 order_by='(Candidate.order_index, Candidate.id)')
 
 
 class Candidate(db.Model):
@@ -119,9 +104,7 @@ class Candidate(db.Model):
     name = db.Column(db.String(128), nullable=False)
     description = db.Column(db.Text, nullable=True)
     photo_url = db.Column(db.String(255), nullable=True)
-    order_index = db.Column(db.Integer, nullable=False, default=0)
-    is_declined = db.Column(db.Boolean, nullable=False, default=False)
-    is_disqualified = db.Column(db.Boolean, nullable=False, default=False)
+    order_index = db.Column(db.Integer, nullable=False, default=0, server_default="0")
 
 
 class VoterInvitation(db.Model):
@@ -136,10 +119,22 @@ class VoterInvitation(db.Model):
     reminder_sent_at = db.Column(db.DateTime, nullable=True)
     last_generated_key = db.Column(db.String(64), nullable=True)
 
+    HMAC_PREFIX = "hmac$"
+
+    @classmethod
+    def hash_key(cls, election_id: int, raw_key: str) -> str:
+        """Keyed, deterministic digest so keys can be looked up directly instead of scanning slow hashes."""
+        from flask import current_app
+        secret = current_app.config["SECRET_KEY"].encode()
+        digest = hmac.new(secret, f"{election_id}:{raw_key}".encode(), hashlib.sha256).hexdigest()
+        return cls.HMAC_PREFIX + digest
+
     def set_key(self, raw_key: str) -> None:
-        self.voting_key_hash = generate_password_hash(raw_key)
+        self.voting_key_hash = self.hash_key(self.election_id, raw_key)
 
     def check_key(self, raw_key: str) -> bool:
+        if self.voting_key_hash.startswith(self.HMAC_PREFIX):
+            return hmac.compare_digest(self.voting_key_hash, self.hash_key(self.election_id, raw_key))
         return check_password_hash(self.voting_key_hash, raw_key)
 
 
@@ -151,7 +146,7 @@ class Vote(db.Model):
     cast_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
     # Important: No voter identifiers are stored here to preserve anonymity.
-    election = db.relationship('Election', backref=db.backref('votes', lazy=True, cascade='all, delete-orphan'))
+    election = db.relationship('Election', backref=db.backref('votes', lazy=True))
     position = db.relationship('Position')
     candidate = db.relationship('Candidate')
 
@@ -178,40 +173,33 @@ class SystemSettings(db.Model):
     smtp_password = db.Column(db.String(255), nullable=True)
     mail_sender = db.Column(db.String(255), nullable=False, default="no-reply@votilio.local")
     invite_subject = db.Column(db.String(255), nullable=False, default="Your Votilio key for {{ election_name }}")
-    invite_body = db.Column(
-        db.Text,
-        nullable=False,
-        default=(
-            "You are invited to vote in '{{ election_name }}'.\n\n"
-            "Election Code: {{ election_code }}\n"
-            "Unique identifier: {{ unique_identifier }}\n"
-            "Key: {{ voting_key }}\n"
-            "Vote link: {{ vote_url }}\n"
-        ),
-    )
+    invite_body = db.Column(db.Text, nullable=False, default="You are invited to vote in '{{ election_name }}'.\n\nElection code: {{ election_code }}\nVoting key: {{ voting_key }}\n\nVote here: {{ vote_url }}\n")
     reminder_subject = db.Column(db.String(255), nullable=False, default="Reminder: vote in {{ election_name }}")
-    reminder_body = db.Column(
-        db.Text,
-        nullable=False,
-        default=(
-            "Friendly reminder to vote in '{{ election_name }}'.\n\n"
-            "Election Code: {{ election_code }}\n"
-            "Unique identifier: {{ unique_identifier }}\n"
-            "Key: {{ voting_key }}\n"
-            "Vote link: {{ vote_url }}."
-        ),
-    )
-    results_subject = db.Column(db.String(255), nullable=False, default="Results for {{ election_name }}")
-    results_body = db.Column(
-        db.Text,
-        nullable=False,
-        default=(
-            "Results are now available for '{{ election_name }}'.\n\n"
-            "Election Code: {{ election_code }}\n"
-            "Results link: {{ results_url }}\n"
-        ),
-    )
+    reminder_body = db.Column(db.Text, nullable=False, default="Friendly reminder to vote in '{{ election_name }}'. Election code: {{ election_code }}, voting key: {{ voting_key }}. Vote at {{ vote_url }}.")
     timezone_name = db.Column(db.String(128), nullable=False, default="UTC")
+    email_provider = db.Column(db.String(16), nullable=False, default="smtp", server_default="smtp")
+    smtp_security = db.Column(db.String(16), nullable=False, default="starttls", server_default="starttls")
+    resend_api_key = db.Column(db.String(512), nullable=True)
+
+    @property
+    def smtp_password_plain(self) -> str:
+        from app.secrets_box import decrypt
+        return decrypt(self.smtp_password)
+
+    @smtp_password_plain.setter
+    def smtp_password_plain(self, value) -> None:
+        from app.secrets_box import encrypt
+        self.smtp_password = encrypt(value)
+
+    @property
+    def resend_api_key_plain(self) -> str:
+        from app.secrets_box import decrypt
+        return decrypt(self.resend_api_key)
+
+    @resend_api_key_plain.setter
+    def resend_api_key_plain(self, value) -> None:
+        from app.secrets_box import encrypt
+        self.resend_api_key = encrypt(value)
 
     @classmethod
     def get_or_create(cls, app=None):
@@ -222,35 +210,19 @@ class SystemSettings(db.Model):
 
         app_obj = app or current_app
         instance = cls(
-            smtp_host=app_obj.config.get("SMTP_HOST", "localhost"),
-            smtp_port=app_obj.config.get("SMTP_PORT", 1025),
-            smtp_user=app_obj.config.get("SMTP_USER"),
-            smtp_password=app_obj.config.get("SMTP_PASSWORD"),
-            mail_sender=app_obj.config.get("MAIL_SENDER", "no-reply@votilio.local"),
+            smtp_host=app_obj.config.get("SMTP_HOST") or "",
+            smtp_port=app_obj.config.get("SMTP_PORT") or 587,
+            smtp_user=app_obj.config.get("SMTP_USER") or None,
+            mail_sender=app_obj.config.get("MAIL_SENDER") or "no-reply@votilio.local",
+            email_provider=app_obj.config.get("EMAIL_PROVIDER") or "smtp",
+            smtp_security=app_obj.config.get("SMTP_SECURITY") or "starttls",
             invite_subject="Your Votilio key for {{ election_name }}",
-            invite_body=(
-                "You are invited to vote in '{{ election_name }}'.\n\n"
-                "Election Code: {{ election_code }}\n"
-                "Unique identifier: {{ unique_identifier }}\n"
-                "Key: {{ voting_key }}\n"
-                "Vote link: {{ vote_url }}\n"
-            ),
+            invite_body="You are invited to vote in '{{ election_name }}'.\n\nElection code: {{ election_code }}\nVoting key: {{ voting_key }}\n\nVote here: {{ vote_url }}\n",
             reminder_subject="Reminder: vote in {{ election_name }}",
-            reminder_body=(
-                "Friendly reminder to vote in '{{ election_name }}'.\n\n"
-                "Election Code: {{ election_code }}\n"
-                "Unique identifier: {{ unique_identifier }}\n"
-                "Key: {{ voting_key }}\n"
-                "Vote link: {{ vote_url }}."
-            ),
-            results_subject="Results for {{ election_name }}",
-            results_body=(
-                "Results are now available for '{{ election_name }}'.\n\n"
-                "Election Code: {{ election_code }}\n"
-                "Results link: {{ results_url }}\n"
-            ),
+            reminder_body="Friendly reminder to vote in '{{ election_name }}'. Election code: {{ election_code }}, voting key: {{ voting_key }}. Vote at {{ vote_url }}.",
             timezone_name=app_obj.config.get("DISPLAY_TIMEZONE", "UTC"),
         )
+        instance.smtp_password_plain = app_obj.config.get("SMTP_PASSWORD") or None
         db.session.add(instance)
         db.session.commit()
         return instance

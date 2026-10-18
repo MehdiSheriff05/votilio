@@ -1,99 +1,20 @@
-{% extends 'base.html' %}
+{% extends 'public/shell.html' %}
+{% from '_macros.html' import icon, photo %}
+{% block page_title %}{{ election.name }} · Results{% endblock %}
+{% block wrap_class %}wide{% endblock %}
 {% block content %}
-{% set primary = election.theme_primary or '#0d6efd' %}
-{% set secondary = election.theme_secondary or '#6610f2' %}
-{% set accent = election.theme_accent or '#f0ad4e' %}
-<style>
-  .results-header {
-    border-left: 4px solid {{ primary }};
-    padding-left: 1rem;
-  }
-  .winner-row {
-    background-color: {{ accent }}20;
-  }
-  .badge-theme {
-    background-color: {{ secondary }};
-  }
-</style>
-<div class="results-header mb-4">
-  <h2>{{ election.name }} Results</h2>
-  <p class="text-muted mb-1">{{ election.description }}</p>
-  <small class="text-muted">Total voters: {{ totals.total }} &middot; Participated: {{ totals.voted }} &middot; Pending: {{ totals.not_voted }}</small>
-</div>
-{% for bucket in summary %}
-  <div class="card mb-4">
-    <div class="card-body">
-      <div class="d-flex justify-content-between align-items-center mb-3">
-        <div>
-          <h4 class="mb-0">{{ bucket.position.name }}</h4>
-          <small class="text-muted">{{ bucket.position.description }}</small>
-        </div>
-        {% if bucket.winners %}
-          <span class="badge badge-theme">Winner: {{ bucket.winners[0].name }}</span>
-        {% else %}
-          <span class="badge bg-secondary">No votes yet</span>
-        {% endif %}
-      </div>
-      <div class="row g-3 align-items-stretch">
-        <div class="col-md-4">
-          <div class="border rounded-4 p-3 h-100">
-            {% if bucket.winners %}
-              {% set winner = bucket.winners[0] %}
-              {% if winner.photo_url %}
-                {% if winner.photo_url.startswith('http') %}
-                  {% set winner_image = winner.photo_url %}
-                {% else %}
-                  {% set winner_image = url_for('static', filename=winner.photo_url) %}
-                {% endif %}
-              {% else %}
-                {% set winner_image = url_for('static', filename='img/placeholder-male.png') %}
-              {% endif %}
-              <div class="ratio ratio-4x5 mb-3">
-                <img src="{{ winner_image }}" class="candidate-photo" alt="{{ winner.name }}" loading="lazy" decoding="async">
-              </div>
-              {% set winner_votes = (bucket.candidates | selectattr('candidate', 'equalto', winner) | list | first) %}
-              <h5 class="mb-1">{{ winner.name }}</h5>
-              <div class="text-muted small">{{ winner_votes.count if winner_votes else 0 }} votes</div>
-            {% else %}
-              <div class="text-muted">Winner not set yet.</div>
-            {% endif %}
-          </div>
-        </div>
-        <div class="col-md-8">
-          <div class="list-group">
-            {% for row in bucket.candidates %}
-              {% set cand = row.candidate %}
-              {% if cand.photo_url %}
-                {% if cand.photo_url.startswith('http') %}
-                  {% set cand_image = cand.photo_url %}
-                {% else %}
-                  {% set cand_image = url_for('static', filename=cand.photo_url) %}
-                {% endif %}
-              {% else %}
-                {% set cand_image = url_for('static', filename='img/placeholder-male.png') %}
-              {% endif %}
-              <div class="list-group-item candidate-list-item {{ 'winner-row' if cand in bucket.winners else '' }}">
-                <div class="candidate-thumb">
-                  <img src="{{ cand_image }}" class="candidate-photo" alt="{{ cand.name }}" loading="lazy" decoding="async">
-                </div>
-                <div class="candidate-meta">
-                  <div class="fw-semibold">{{ cand.name }}</div>
-                  <div class="small text-muted">
-                    {% if cand.is_declined %}
-                      <span class="badge bg-warning text-dark me-1">Declined</span>
-                    {% endif %}
-                    {% if cand.is_disqualified %}
-                      <span class="badge bg-danger me-1">Disqualified</span>
-                    {% endif %}
-                  </div>
-                </div>
-                <div class="ms-auto fw-bold">{{ row.count }}</div>
-              </div>
-            {% endfor %}
-          </div>
-        </div>
-      </div>
-    </div>
+<div class="v-hero" style="text-align:left"><h1>{{ election.name }}</h1><p>Results · {{ totals.voted }} of {{ totals.total }} voters took part ({{ totals.turnout }}%)</p></div>
+{% for block in summary %}
+<section class="v-card" style="padding:6px 0 10px;margin-bottom:14px">
+  <div class="card-head" style="border:0"><h2>{{ block.position.name }}</h2><span class="faint">{{ block.total_votes }} vote{{ '' if block.total_votes == 1 else 's' }}</span></div>
+  {% for item in block.candidates|sort(attribute='count', reverse=True) %}
+  {% set pct = (100 * item.count / block.total_votes)|round(1) if block.total_votes else 0 %}
+  <div class="res-row {{ 'win' if item.candidate in block.winners }}">
+    <div class="nm">{{ photo(item.candidate) }}<span class="truncate">{{ item.candidate.name }}</span>{% if item.candidate in block.winners %}<span class="win-tag">{{ icon('check') }}{{ 'Tied' if block.winners|length > 1 else 'Winner' }}</span>{% endif %}</div>
+    <div class="res-bar"><i style="width: {{ pct }}%"></i></div>
+    <div class="num"><b>{{ item.count }}</b> · {{ pct }}%</div>
   </div>
+  {% endfor %}
+</section>
 {% endfor %}
 {% endblock %}

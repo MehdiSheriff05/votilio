@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+{% from '_macros.html' import icon %}
+{% block title %}{{ title }} · Votilio{% endblock %}
+{% block body %}
+<main class="err-page"><div>
+  <div class="code">{{ status }}</div>
+  <h1 style="margin:10px 0 6px">{{ title }}</h1>
+  <p class="muted" style="max-width:380px;margin:0 auto 20px">{{ message }}</p>
+  <a class="btn" href="{{ url_for('public.vote') }}">{{ icon('arrow-left') }}Back to start</a>
+</div></main>
+{% endblock %}

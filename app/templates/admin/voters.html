@@ -1,0 +1,128 @@
+{% extends 'admin/workspace.html' %}
+{% from '_macros.html' import icon, csrf %}
+{% block page_title %}{{ election.name }} · Voters{% endblock %}
+{% block ws_content %}
+<div data-region="voters-head">
+  {% if not mail_ready %}
+  <div class="notice notice-warn" style="margin-bottom:var(--s-4)">{{ icon('alert') }}<div>Email isn't set up yet, so invitations can't be sent. {% if session.is_super_admin %}<a href="{{ url_for('admin.system_settings') }}" style="text-decoration:underline">Choose SMTP or Resend</a>{% else %}Ask a super admin to configure it.{% endif %} You can still export voting keys and hand them out.</div></div>
+  {% endif %}
+  <div class="toolbar">
+    <div class="input-icon">{{ icon('search') }}<input class="input" type="search" placeholder="Search name or email" value="{{ q }}" data-live-search aria-label="Search voters" autocomplete="off"></div>
+    <div class="grow"></div>
+    <button type="button" class="btn btn-sm" data-open="#add-voter-dialog" data-mode="create">{{ icon('plus') }}Add voter</button>
+    <button type="button" class="btn btn-sm" data-csv-open="voters" data-endpoint="{{ url_for('admin.voters_import', election_id=election.id) }}" data-template="{{ url_for('admin.voters_template', election_id=election.id) }}">{{ icon('upload') }}Import CSV</button>
+    <details class="menu">
+      <summary class="btn btn-sm btn-icon" aria-label="Export">{{ icon('download') }}</summary>
+      <div class="menu-pop">
+        <a href="{{ url_for('admin.export_voters', election_id=election.id) }}">{{ icon('table') }}Voters and status (CSV)</a>
+        {% if session.is_super_admin %}<a href="{{ url_for('admin.export_keys', election_id=election.id) }}">{{ icon('key') }}Voting keys (CSV)</a>{% endif %}
+      </div>
+    </details>
+    {% if reminder_ready %}<button type="button" class="btn btn-sm" data-send data-kind="reminder" data-total="{{ reminder_ready }}" data-label="reminders" data-endpoint="{{ url_for('admin.send_chunk', election_id=election.id) }}" {{ 'disabled' if not mail_ready }}>{{ icon('bell') }}Remind {{ reminder_ready }}</button>{% endif %}
+    {% if sendable %}<button type="button" class="btn btn-sm btn-primary" data-send data-kind="invite" data-total="{{ sendable }}" data-label="invitations" data-endpoint="{{ url_for('admin.send_chunk', election_id=election.id) }}" {{ 'disabled' if not mail_ready }}>{{ icon('send') }}Send {{ sendable }} invitation{{ '' if sendable == 1 else 's' }}</button>{% endif %}
+  </div>
+</div>
+
+<div id="bulkbar" class="bulkbar" role="region" aria-label="Bulk actions">
+  <b><span data-bulk-count>0</span> selected</b>
+  <div class="grow"></div>
+  <button type="button" class="btn btn-sm" data-send data-kind="invite" data-ids="selected" data-label="invitations" data-endpoint="{{ url_for('admin.send_chunk', election_id=election.id) }}" {{ 'disabled' if not mail_ready }}>{{ icon('send') }}Send invite</button>
+  <button type="button" class="btn btn-sm" data-send data-kind="reminder" data-ids="selected" data-label="reminders" data-endpoint="{{ url_for('admin.send_chunk', election_id=election.id) }}" {{ 'disabled' if not mail_ready }}>{{ icon('bell') }}Remind</button>
+  <form method="post" action="{{ url_for('admin.bulk_delete_voters', election_id=election.id) }}" data-async data-collect="ids" data-swap="voters-list,ws-stats,voters-head" data-confirm="Remove the selected voters? Anyone who has already voted is kept." data-confirm-title="Remove voters" data-confirm-ok="Remove">{{ csrf() }}<button class="btn btn-sm btn-danger" type="submit">{{ icon('trash') }}Remove</button></form>
+  <button type="button" class="btn btn-sm btn-ghost" data-bulk-clear>Clear</button>
+</div>
+
+<div data-region="voters-list">
+  <div class="chips" style="margin-bottom:var(--s-3)" role="tablist" aria-label="Filter voters">
+    {% for key, label in [('all', 'All'), ('unsent', 'Not invited'), ('sent', 'Invited'), ('voted', 'Voted')] %}
+    <a class="chip {{ 'active' if status == key }}" href="{{ url_for('admin.voters', election_id=election.id, status=key if key != 'all' else None, q=q or None) }}">{{ label }} <span class="n">{{ counts[key] }}</span></a>
+    {% endfor %}
+  </div>
+  {% if items %}
+  <div class="rows" role="table" aria-label="Voters">
+    <div class="rows-head" role="row"><span><input class="cb" type="checkbox" data-all aria-label="Select all on this page"></span><span>Voter</span><span>Status</span><span>Invited</span><span>Voted / reminded</span><span></span></div>
+    {% for i in items %}
+    <div class="vrow" role="row">
+      <span class="cbcell"><input class="cb" type="checkbox" data-row value="{{ i.id }}" aria-label="Select {{ i.email or i.name }}"></span>
+      <div class="who"><b>{{ i.name or i.email or 'Unnamed voter' }}</b><span>{{ i.email if i.name else '' }}</span></div>
+      <span class="st">
+        {% if i.used %}<span class="pill pill-success">Voted</span>
+        {% elif not i.email %}<span class="pill pill-warn">No email</span>
+        {% elif i.sent_at %}<span class="pill pill-info">{{ 'Reminded' if i.reminder_sent_at else 'Invited' }}</span>
+        {% else %}<span class="pill pill-plain">Not invited</span>{% endif %}
+      </span>
+      <span class="when"><span class="lbl">Invited</span>{{ i.sent_at|short_time }}</span>
+      <span class="when second"><span class="lbl">{{ 'Voted' if i.used else 'Reminded' }}</span>{{ (i.used_at if i.used else i.reminder_sent_at)|short_time }}</span>
+      <div class="acts">
+        {% if i.email and not i.used %}
+        <form method="post" action="{{ url_for('admin.send_one', invitation_id=i.id) }}" data-async data-swap="voters-list,ws-stats,voters-head">{{ csrf() }}<button class="btn btn-ghost btn-icon btn-sm" type="submit" title="{{ 'Resend invitation' if i.sent_at else 'Send invitation' }}" aria-label="{{ 'Resend invitation' if i.sent_at else 'Send invitation' }}" {{ 'disabled' if not mail_ready }}>{{ icon('send') }}</button></form>
+        {% if i.sent_at %}<form method="post" action="{{ url_for('admin.send_one', invitation_id=i.id) }}" data-async data-swap="voters-list,ws-stats,voters-head">{{ csrf() }}<input type="hidden" name="kind" value="reminder"><button class="btn btn-ghost btn-icon btn-sm" type="submit" title="Send reminder" aria-label="Send reminder" {{ 'disabled' if not mail_ready }}>{{ icon('bell') }}</button></form>{% endif %}
+        {% endif %}
+        {% if not i.used %}<button type="button" class="btn btn-ghost btn-icon btn-sm" title="Show voting key" aria-label="Show voting key" data-reveal-key="{{ url_for('admin.reveal_key', invitation_id=i.id) }}">{{ icon('key') }}</button>{% endif %}
+        <button type="button" class="btn btn-ghost btn-icon btn-sm" title="Edit" aria-label="Edit voter" data-open="#edit-voter-dialog" data-mode="edit" data-action="{{ url_for('admin.update_voter', invitation_id=i.id) }}" data-fill='{{ {"name": i.name or "", "email": i.email or ""}|tojson }}'>{{ icon('edit') }}</button>
+        {% if not i.used %}<form method="post" action="{{ url_for('admin.delete_voter', invitation_id=i.id) }}" data-async data-swap="voters-list,ws-stats,voters-head" data-confirm="Remove {{ i.email or i.name or 'this voter' }} from the list? Their key stops working." data-confirm-title="Remove voter" data-confirm-ok="Remove">{{ csrf() }}<button class="btn btn-ghost btn-icon btn-sm" type="submit" title="Remove" aria-label="Remove voter">{{ icon('trash') }}</button></form>{% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% if pages > 1 %}
+  <div class="pager">
+    <span>{{ (page - 1) * page_size + 1 }}–{{ [page * page_size, total_filtered]|min }} of {{ total_filtered }}</span>
+    <div class="row-flex">
+      {% if page > 1 %}<a class="btn btn-sm" href="{{ url_for('admin.voters', election_id=election.id, status=status if status != 'all' else None, q=q or None, page=page - 1) }}">{{ icon('chevron-left') }}Previous</a>{% endif %}
+      {% if page < pages %}<a class="btn btn-sm" href="{{ url_for('admin.voters', election_id=election.id, status=status if status != 'all' else None, q=q or None, page=page + 1) }}">Next{{ icon('chevron-right') }}</a>{% endif %}
+    </div>
+  </div>
+  {% endif %}
+  {% elif counts['all'] == 0 %}
+  <div class="card empty">
+    <div class="ic-wrap">{{ icon('users') }}</div>
+    <h3>Who's voting?</h3>
+    <p>Import your voter list from a spreadsheet, or add people one by one. Each voter gets a private 6-digit key.</p>
+    <div class="row-flex" style="justify-content:center;margin-top:16px">
+      <button type="button" class="btn btn-primary" style="margin:0" data-csv-open="voters" data-endpoint="{{ url_for('admin.voters_import', election_id=election.id) }}" data-template="{{ url_for('admin.voters_template', election_id=election.id) }}">{{ icon('upload') }}Import CSV</button>
+      <button type="button" class="btn" style="margin:0" data-open="#add-voter-dialog" data-mode="create">{{ icon('plus') }}Add voter</button>
+    </div>
+  </div>
+  {% else %}
+  <div class="card empty"><div class="ic-wrap">{{ icon('search') }}</div><h3>No matching voters</h3><p>Try a different search or filter.</p></div>
+  {% endif %}
+</div>
+
+<dialog id="add-voter-dialog" aria-labelledby="av-title">
+  <form class="dlg" method="post" action="{{ url_for('admin.add_voter', election_id=election.id) }}" data-async data-swap="voters-list,ws-stats,voters-head">
+    {{ csrf() }}
+    <div class="dlg-head"><h2 id="av-title">Add voter</h2><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close aria-label="Close">{{ icon('x') }}</button></div>
+    <div class="dlg-body">
+      <div class="field"><label class="label" for="av-name">Name <span class="faint">(optional)</span></label><input class="input" id="av-name" name="name" maxlength="255" autocomplete="off"></div>
+      <div class="field"><label class="label" for="av-email">Email</label><input class="input" id="av-email" name="email" type="email" required autocomplete="off" inputmode="email"></div>
+      <label class="check" style="margin-top:14px"><input class="cb" type="checkbox" name="send_now"> Email the invitation right away</label>
+    </div>
+    <div class="dlg-foot"><button type="button" class="btn" data-close>Cancel</button><button type="submit" class="btn btn-primary">Add voter</button></div>
+  </form>
+</dialog>
+<dialog id="edit-voter-dialog" aria-labelledby="ev-title">
+  <form class="dlg" method="post" data-async data-swap="voters-list,ws-stats,voters-head">
+    {{ csrf() }}
+    <div class="dlg-head"><h2 id="ev-title">Edit voter</h2><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close aria-label="Close">{{ icon('x') }}</button></div>
+    <div class="dlg-body">
+      <div class="field"><label class="label" for="ev-name">Name</label><input class="input" id="ev-name" name="name" maxlength="255"></div>
+      <div class="field"><label class="label" for="ev-email">Email</label><input class="input" id="ev-email" name="email" type="email" inputmode="email"></div>
+    </div>
+    <div class="dlg-foot"><button type="button" class="btn" data-close>Cancel</button><button type="submit" class="btn btn-primary">Save</button></div>
+  </form>
+</dialog>
+<dialog id="send-dialog" aria-labelledby="send-title" data-modal-strict>
+  <div class="dlg-head"><h2 id="send-title" data-send-title>Sending</h2></div>
+  <div class="dlg-body send-progress">
+    <div class="big" data-send-big>0</div>
+    <div class="progress"><i data-send-bar style="width:0"></i></div>
+    <div class="muted" data-send-sub>Starting…</div>
+    <div class="fail-list hide" data-send-fails></div>
+  </div>
+  <div class="dlg-foot"><button type="button" class="btn btn-primary" data-send-done disabled>Working…</button></div>
+</dialog>
+{% include 'partials/import_dialog.html' %}
+{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='dist/csv-editor.css') }}?v={{ asset_v }}">{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='dist/csv-editor.js') }}?v={{ asset_v }}" defer></script>{% endblock %}

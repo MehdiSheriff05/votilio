@@ -1,0 +1,36 @@
+{% extends 'admin/settings_shell.html' %}
+{% from '_macros.html' import icon, csrf %}
+{% block page_title %}Admins{% endblock %}
+{% block crumb_title %}Admins{% endblock %}
+{% block settings_content %}
+<div class="page-head"><div class="grow"><h1>Admins</h1><p>People who can sign in and manage elections.</p></div>
+  <div class="page-actions"><button class="btn btn-primary" data-open="#new-admin">{{ icon('plus') }}Add admin</button></div></div>
+<div class="rows" data-region="admins">
+  {% for a in admins %}
+  <div class="vrow" style="grid-template-columns: 40px minmax(0,1fr) auto" role="row">
+    <span class="avatar">{{ a.username[:2]|upper }}</span>
+    <div class="who"><b>{{ a.username }}</b><span>{{ 'Super admin' if a.is_super_admin else 'Admin' }}{% if a.id == session.admin_id %} · you{% endif %}</span></div>
+    <div class="acts">
+      <button class="btn btn-ghost btn-sm" data-open="#edit-admin" data-mode="edit" data-title="Edit {{ a.username }}" data-action="{{ url_for('admin.update_admin', admin_id=a.id) }}" data-fill='{{ {"username": a.username, "is_super_admin": a.is_super_admin}|tojson }}'>{{ icon('edit') }}<span class="only-desktop">Edit</span></button>
+      <button class="btn btn-ghost btn-sm" data-open="#pw-admin" data-title="New password for {{ a.username }}" data-action="{{ url_for('admin.reset_admin_password', admin_id=a.id) }}">{{ icon('lock') }}<span class="only-desktop">Password</span></button>
+      {% if a.id != session.admin_id %}<form method="post" action="{{ url_for('admin.delete_admin', admin_id=a.id) }}" data-async data-reload data-confirm="Delete the admin account “{{ a.username }}”?" data-confirm-title="Delete admin" data-confirm-ok="Delete">{{ csrf() }}<button class="btn btn-ghost btn-icon btn-sm" aria-label="Delete {{ a.username }}">{{ icon('trash') }}</button></form>{% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+<dialog id="new-admin"><form class="dlg" method="post" action="{{ url_for('admin.create_admin_user') }}" data-async data-reload>{{ csrf() }}
+  <div class="dlg-head"><h2>Add admin</h2><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close aria-label="Close">{{ icon('x') }}</button></div>
+  <div class="dlg-body"><div class="field"><label class="label" for="na-u">Username</label><input class="input" id="na-u" name="username" required maxlength="64" autocomplete="off"></div>
+    <div class="field"><label class="label" for="na-p">Password</label><input class="input" id="na-p" name="password" type="password" required minlength="8" autocomplete="new-password"><span class="hint">At least 8 characters.</span></div>
+    <label class="check" style="margin-top:14px"><input class="cb" type="checkbox" name="is_super_admin"> Super admin (can manage settings and admins)</label></div>
+  <div class="dlg-foot"><button type="button" class="btn" data-close>Cancel</button><button class="btn btn-primary" type="submit">Create</button></div></form></dialog>
+<dialog id="edit-admin"><form class="dlg" method="post" data-async data-reload>{{ csrf() }}
+  <div class="dlg-head"><h2 data-dlg-title>Edit admin</h2><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close aria-label="Close">{{ icon('x') }}</button></div>
+  <div class="dlg-body"><div class="field"><label class="label" for="ea-u">Username</label><input class="input" id="ea-u" name="username" required maxlength="64"></div>
+    <label class="check" style="margin-top:14px"><input class="cb" type="checkbox" name="is_super_admin"> Super admin</label></div>
+  <div class="dlg-foot"><button type="button" class="btn" data-close>Cancel</button><button class="btn btn-primary" type="submit">Save</button></div></form></dialog>
+<dialog id="pw-admin"><form class="dlg" method="post" data-async data-reload>{{ csrf() }}
+  <div class="dlg-head"><h2 data-dlg-title>New password</h2><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close aria-label="Close">{{ icon('x') }}</button></div>
+  <div class="dlg-body"><div class="field"><label class="label" for="pw-p">New password</label><input class="input" id="pw-p" name="password" type="password" required minlength="8" autocomplete="new-password"></div></div>
+  <div class="dlg-foot"><button type="button" class="btn" data-close>Cancel</button><button class="btn btn-primary" type="submit">Update password</button></div></form></dialog>
+{% endblock %}

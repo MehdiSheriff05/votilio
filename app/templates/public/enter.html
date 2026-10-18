@@ -1,0 +1,20 @@
+{% extends 'public/shell.html' %}
+{% from '_macros.html' import icon, csrf, initials, photo %}
+{% block page_title %}{{ election.name if election else 'Cast your vote' }}{% endblock %}
+{% block content %}
+<div class="v-hero">
+  <h1>{{ election.name if election else 'Cast your vote' }}</h1>
+  <p>{{ election.description if election and election.description else 'Enter the election code and the 6-digit key from your invitation email.' }}</p>
+</div>
+<form class="v-card" method="post" novalidate>
+  {{ csrf() }}
+  <div class="field"><label class="label" for="election_code">Election code</label>
+    <input class="input codeinput" id="election_code" name="election_code" value="{{ code }}" required autocomplete="off" autocapitalize="off" spellcheck="false" {{ 'autofocus' if not code }} placeholder="e.g. council-2026"></div>
+  <div class="field"><label class="label" for="voting_key">Voting key</label>
+    <input class="input keyinput" id="voting_key" name="voting_key" required inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code" {{ 'autofocus' if code }} placeholder="······" aria-describedby="key-hint"></div>
+  <span class="hint" id="key-hint" style="display:block;margin-top:8px;text-align:center">The 6-digit number from your email.</span>
+  {% if error %}<div class="v-err" role="alert">{{ icon('alert') }}<span>{{ error }}</span></div>{% endif %}
+  <button class="btn btn-brand btn-lg btn-block" style="margin-top:18px" type="submit">Continue</button>
+</form>
+<p class="faint" style="text-align:center;margin-top:18px;font-size:12.5px">{{ icon('lock') }} Your ballot is anonymous. It can't be linked back to you.</p>
+{% endblock %}

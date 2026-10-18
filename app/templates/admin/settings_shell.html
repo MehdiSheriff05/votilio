@@ -1,0 +1,17 @@
+{% extends 'admin/shell.html' %}
+{% from '_macros.html' import icon, csrf %}
+{% set nav = section %}
+{% block crumbs %}<span>Settings</span><span class="sep">/</span><b>{% block crumb_title %}{% endblock %}</b>{% endblock %}
+{% block content %}
+<div class="settings-grid">
+  <nav class="subnav" aria-label="Settings">
+    {% if session.is_super_admin %}
+    <a class="sb-link {{ 'active' if section == 'email' }}" href="{{ url_for('admin.system_settings') }}">{{ icon('mail') }}Email</a>
+    <a class="sb-link {{ 'active' if section == 'general' }}" href="{{ url_for('admin.general_settings') }}">{{ icon('sliders') }}General</a>
+    <a class="sb-link {{ 'active' if section == 'admins' }}" href="{{ url_for('admin.manage_admins') }}">{{ icon('shield') }}Admins</a>
+    {% endif %}
+    <a class="sb-link {{ 'active' if section == 'logs' }}" href="{{ url_for('admin.audit_logs') }}">{{ icon('list') }}Audit log</a>
+  </nav>
+  <div>{% block settings_content %}{% endblock %}</div>
+</div>
+{% endblock %}

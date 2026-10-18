@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% from '_macros.html' import icon, csrf %}
+{% block title %}{% block page_title %}Vote{% endblock %} · Votilio{% endblock %}
+{% block body_class %}v-body{% endblock %}
+{% block body_style %}{{ brand_style(election) if election else '' }}{% endblock %}
+{% block body %}
+<main class="v-wrap {% block wrap_class %}{% endblock %}">
+  <div class="v-top">
+    <span class="brandmark"><span class="logo">{{ icon('check') }}</span>{{ election.name if election else 'Votilio' }}</span>
+    <button type="button" class="btn btn-ghost btn-icon btn-sm" data-theme-toggle aria-label="Toggle theme"><svg class="ic"><use href="#i-sun"/></svg></button>
+  </div>
+  {% block content %}{% endblock %}
+</main>
+{% block bar %}{% endblock %}
+{% endblock %}
