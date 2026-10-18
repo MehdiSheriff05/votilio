@@ -110,7 +110,7 @@ Invitation and reminder wording can be edited on the same page. The available pl
 ## Running an election
 
 1. **Create the election.** Give it a name, an optional voting window and a brand colour. If you leave the code blank, one is generated.
-2. **Build the ballot.** On the Setup tab, add positions and their candidates, either one at a time or with Import CSV. Drag to change the order. Each position has two limits: the most candidates who can run, and how many candidates a voter may choose (see [Positions with several seats](#positions-with-several-seats)).
+2. **Build the ballot.** On the Setup tab, add positions and their candidates, either one at a time or with Import CSV. Drag to change the order. Any number of people can stand for a position. Each position has one limit, how many candidates a voter may choose (see [Positions with several seats](#positions-with-several-seats)).
 3. **Add voters.** On the Voters tab, import a CSV or add people individually.
 4. **Send invitations.** Each voter receives the election code and their key. Anyone not yet invited can be handled in one pass, and reminders can be sent to people who have not voted.
 5. **Watch turnout** on the Voters and Results tabs. Voting can be paused and resumed at any time.
@@ -141,7 +141,7 @@ The import screen accepts a file, drag and drop, or pasted rows. Header names ar
 | Import | Columns | Notes |
 | --- | --- | --- |
 | Voters | `name` (optional), `email` (required) | Emails must be valid and unique, both within the file and against voters already on the list. |
-| Candidates | `position`, `name` (required); `bio`, `photo_url` (optional) | `photo_url` must be an `http` or `https` link. A position's candidate limit is enforced. Enable "Create missing positions" to add positions found in the file. |
+| Candidates | `position`, `name` (required); `bio`, `photo_url` (optional) | `photo_url` must be an `http` or `https` link. Enable "Create missing positions" to add positions found in the file. |
 
 Rows with problems are highlighted in the editor and can be fixed in place or skipped. Imports are limited to 20,000 rows and 8 MB.
 

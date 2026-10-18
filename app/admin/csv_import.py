@@ -28,7 +28,7 @@ def _voter_report(election, rows):
 
 def _position_state(election):
     positions = Position.query.filter_by(election_id=election.id).all()
-    return {p.name.lower(): {"name": p.name, "slots": p.candidate_slots,
+    return {p.name.lower(): {"name": p.name,
                              "names": {c.name.lower() for c in p.candidates}} for p in positions}
 
 
@@ -122,7 +122,7 @@ def candidates_import(election_id):
         key = new['name'].lower()
         if key in needed and key not in positions:
             next_position_order += 1
-            position = Position(election=election, name=new['name'], candidate_slots=max(1, new['slots']),
+            position = Position(election=election, name=new['name'],
                                 order_index=next_position_order)
             db.session.add(position)
             positions[key] = position

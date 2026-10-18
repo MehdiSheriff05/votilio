@@ -41,8 +41,8 @@
         <span class="grip" title="Drag to reorder" aria-label="Drag to reorder">{{ icon('grip') }}</span>
         <div class="grow"><h3 class="truncate">{{ p.name }}</h3>{% if p.description %}<div class="faint truncate" style="font-size:12.5px">{{ p.description }}</div>{% endif %}</div>
         {% if p.max_selections > 1 %}<span class="pill pill-info pill-plain">Choose up to {{ p.max_selections }}</span>{% endif %}
-        <span class="pill pill-plain {{ 'pill-warn' if p.candidates|length >= p.candidate_slots }}">{{ p.candidates|length }} / {{ p.candidate_slots }} candidates</span>
-        <button type="button" class="btn btn-ghost btn-icon btn-sm" aria-label="Edit position" data-open="#position-dialog" data-mode="edit" data-title="Edit position" data-action="{{ url_for('admin.update_position', position_id=p.id) }}" data-fill='{{ {"name": p.name, "description": p.description or "", "candidate_slots": p.candidate_slots, "max_selections": p.max_selections}|tojson }}'>{{ icon('edit') }}</button>
+        <span class="pill pill-plain">{{ p.candidates|length }} candidate{{ '' if p.candidates|length == 1 else 's' }}</span>
+        <button type="button" class="btn btn-ghost btn-icon btn-sm" aria-label="Edit position" data-open="#position-dialog" data-mode="edit" data-title="Edit position" data-action="{{ url_for('admin.update_position', position_id=p.id) }}" data-fill='{{ {"name": p.name, "description": p.description or "", "max_selections": p.max_selections}|tojson }}'>{{ icon('edit') }}</button>
         <form method="post" action="{{ url_for('admin.delete_position', position_id=p.id) }}" data-async data-swap="positions-list,ws-stats" data-confirm="Delete “{{ p.name }}” and its {{ p.candidates|length }} candidate(s)? This can't be undone." data-confirm-title="Delete position" data-confirm-ok="Delete">{{ csrf() }}<button class="btn btn-ghost btn-icon btn-sm" aria-label="Delete position" type="submit">{{ icon('trash') }}</button></form>
       </div>
       <div class="cand-list" data-sortable data-reorder-url="{{ url_for('admin.reorder_candidates', position_id=p.id) }}">
@@ -57,9 +57,7 @@
         </div>
         {% endfor %}
       </div>
-      {% if p.candidates|length < p.candidate_slots %}
       <button type="button" class="btn btn-sm add-cand" data-open="#candidate-dialog" data-mode="create" data-title="Add candidate to {{ p.name }}" data-action="{{ url_for('admin.create_candidate', position_id=p.id) }}" data-fill='{{ {"position_id": p.id}|tojson }}'>{{ icon('plus') }}Add candidate</button>
-      {% endif %}
     </div>
   {% endfor %}
   </div>
@@ -93,8 +91,7 @@
     <div class="dlg-head"><h2 id="pos-dlg-title" data-dlg-title>Add position</h2><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close aria-label="Close">{{ icon('x') }}</button></div>
     <div class="dlg-body">
       <div class="field"><label class="label" for="pd-name">Position name</label><input class="input" id="pd-name" name="name" required maxlength="128" placeholder="President"></div>
-      <div class="field"><label class="label" for="pd-slots">Maximum candidates</label><input class="input" id="pd-slots" name="candidate_slots" type="number" min="1" max="50" value="1" inputmode="numeric"><span class="hint">The most people who can run for this position.</span></div>
-      <div class="field"><label class="label" for="pd-picks">Voters can choose up to</label><input class="input" id="pd-picks" name="max_selections" type="number" min="1" max="50" value="1" inputmode="numeric"><span class="hint">Leave at 1 for a single winner. Set 2 or more when several seats are filled from this position; that many candidates win.</span></div>
+      <div class="field"><label class="label" for="pd-picks">Voters can choose up to</label><input class="input" id="pd-picks" name="max_selections" type="number" min="1" max="100" value="1" inputmode="numeric"><span class="hint">Any number of people can stand. Leave at 1 for a single winner. Set 2 or more when several seats are filled from this position; that many candidates win.</span></div>
       <div class="field"><label class="label" for="pd-desc">Description <span class="faint">(optional)</span></label><textarea class="textarea" id="pd-desc" name="description" rows="2"></textarea></div>
     </div>
     <div class="dlg-foot"><button type="button" class="btn" data-close>Cancel</button><button type="submit" class="btn btn-primary">Save</button></div>

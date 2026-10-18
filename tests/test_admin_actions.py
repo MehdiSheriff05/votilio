@@ -42,7 +42,7 @@ def test_duplicate_election_code_rejected(admin_client, election, token):
 
 def test_position_and_candidate_crud_with_photo(admin_client, election, token):
     t = token(f"/admin/elections/{election.id}/setup")
-    r = form(admin_client, f"/admin/elections/{election.id}/positions/create", {"name": "Treasurer", "candidate_slots": "2"}, t)
+    r = form(admin_client, f"/admin/elections/{election.id}/positions/create", {"name": "Treasurer"}, t)
     assert r.get_json()["ok"]
     pos = Position.query.filter_by(name="Treasurer").one()
     up = form(admin_client, f"/admin/positions/{pos.id}/candidates/create", {"name": "Priya", "description": "bio", "photo": (png_bytes(), "p.png")}, t, content_type="multipart/form-data")
@@ -54,8 +54,8 @@ def test_position_and_candidate_crud_with_photo(admin_client, election, token):
     bad = form(admin_client, f"/admin/positions/{pos.id}/candidates/create", {"name": "Fake", "photo": (io.BytesIO(b"not an image"), "x.png")}, t, content_type="multipart/form-data")
     assert bad.status_code == 400 and Candidate.query.filter_by(name="Fake").count() == 0
     assert form(admin_client, f"/admin/positions/{pos.id}/candidates/create", {"name": "Omar"}, t).get_json()["ok"]
-    full = form(admin_client, f"/admin/positions/{pos.id}/candidates/create", {"name": "Third"}, t)
-    assert full.status_code == 409
+    third = form(admin_client, f"/admin/positions/{pos.id}/candidates/create", {"name": "Third"}, t)
+    assert third.get_json()["ok"] and len(pos.candidates) == 3  # no cap on how many can stand
     old = cand.photo_url
     form(admin_client, f"/admin/candidates/{cand.id}/update", {"name": "Priya N", "remove_photo": "on"}, t)
     db.session.refresh(cand)

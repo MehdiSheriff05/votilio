@@ -76,7 +76,7 @@ def election(app):
     e = Election(name="Council", access_code="council", is_active=True)
     db.session.add(e)
     db.session.flush()
-    pos = Position(election_id=e.id, name="President", candidate_slots=3, order_index=1)
+    pos = Position(election_id=e.id, name="President", order_index=1)
     db.session.add(pos)
     db.session.flush()
     db.session.add_all([Candidate(position_id=pos.id, name="Amina", order_index=1), Candidate(position_id=pos.id, name="Daniel", order_index=2)])

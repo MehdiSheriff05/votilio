@@ -120,8 +120,8 @@ def validate_voters(rows: List[dict], existing_emails: Iterable[str]) -> Report:
 
 
 def validate_candidates(rows: List[dict], positions: Dict[str, dict], create_missing: bool = False) -> Report:
-    """`positions` maps lower-cased position name -> {"name", "slots", "names": set(lower candidate names)}."""
-    state = {k: {"name": v["name"], "slots": v["slots"], "names": set(v["names"]), "count": len(v["names"])}
+    """`positions` maps lower-cased position name -> {"name", "names": set(lower candidate names)}. No cap on candidates."""
+    state = {k: {"name": v["name"], "names": set(v["names"])}
              for k, v in positions.items()}
     new_positions: Dict[str, dict] = {}
     results: List[RowResult] = []
@@ -135,9 +135,7 @@ def validate_candidates(rows: List[dict], positions: Dict[str, dict], create_mis
             pname = result.row["position"]
             key = pname.lower()
             if pname and key not in state:
-                new_positions.setdefault(key, {"name": pname, "slots": 0})
-            if pname and key in new_positions:
-                new_positions[key]["slots"] += 1
+                new_positions.setdefault(key, {"name": pname})
 
     for result in parsed:
         row = result.row
@@ -154,15 +152,11 @@ def validate_candidates(rows: List[dict], positions: Dict[str, dict], create_mis
 
         if "position" not in result.errors and "name" not in result.errors:
             if key not in state:
-                state[key] = {"name": new_positions[key]["name"], "slots": new_positions[key]["slots"],
-                              "names": set(), "count": 0}
+                state[key] = {"name": new_positions[key]["name"], "names": set()}
             pos = state[key]
             if cname.lower() in pos["names"]:
                 result.errors["name"] = f"Already a candidate for {pos['name']}"
-            elif pos["count"] >= pos["slots"]:
-                result.errors["position"] = f"{pos['name']} is full ({pos['slots']} slot{'s' if pos['slots'] != 1 else ''})"
             else:
                 pos["names"].add(cname.lower())
-                pos["count"] += 1
         results.append(result)
     return Report(results, list(new_positions.values()))

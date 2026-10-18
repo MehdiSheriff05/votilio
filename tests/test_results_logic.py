@@ -129,7 +129,7 @@ def test_percentages_use_votes_for_single_seat_and_voters_for_multi_seat(electio
 
 
 def test_same_person_winning_two_positions_is_flagged(election):
-    p2 = Position(election_id=election.id, name="Treasurer", candidate_slots=2, order_index=2)
+    p2 = Position(election_id=election.id, name="Treasurer", order_index=2)
     db.session.add(p2)
     db.session.flush()
     twin = Candidate(position_id=p2.id, name="amina ", order_index=1)
@@ -225,7 +225,7 @@ def test_deleting_an_overridden_candidate_position_or_election_is_safe(admin_cli
 
 
 def test_results_page_warns_about_double_winners_and_csv_has_status(admin_client, election):
-    p2 = Position(election_id=election.id, name="Treasurer", candidate_slots=2, order_index=2)
+    p2 = Position(election_id=election.id, name="Treasurer", order_index=2)
     db.session.add(p2)
     db.session.flush()
     twin = Candidate(position_id=p2.id, name="Amina", order_index=1)
@@ -241,18 +241,22 @@ def test_results_page_warns_about_double_winners_and_csv_has_status(admin_client
     assert "position,candidate,status,votes,percent,winner" in csv_text and "dismissed" in csv_text
 
 
-def test_position_settings_clamp_selection_limit(admin_client, election, token):
+def test_selection_limit_is_independent_of_how_many_stand(admin_client, election, token):
     t = token(f"/admin/elections/{election.id}/setup")
-    r = post(admin_client, f"/admin/elections/{election.id}/positions/create", {"name": "Reps", "candidate_slots": "4", "max_selections": "9"}, t)
+    r = post(admin_client, f"/admin/elections/{election.id}/positions/create", {"name": "Reps", "max_selections": "3"}, t)
     assert r.get_json()["ok"]
     reps = Position.query.filter_by(name="Reps").one()
-    assert reps.candidate_slots == 4 and reps.max_selections == 4
-    post(admin_client, f"/admin/positions/{reps.id}/update", {"name": "Reps", "candidate_slots": "2", "max_selections": "3"}, t)
+    assert reps.max_selections == 3
+    for i in range(8):
+        assert post(admin_client, f"/admin/positions/{reps.id}/candidates/create", {"name": f"Cand {i}"}, t).get_json()["ok"]
     db.session.refresh(reps)
-    assert reps.max_selections == 2
-    post(admin_client, f"/admin/positions/{reps.id}/update", {"name": "Reps", "candidate_slots": "2", "max_selections": "0"}, t)
+    assert len(reps.candidates) == 8 and reps.max_selections == 3
+    post(admin_client, f"/admin/positions/{reps.id}/update", {"name": "Reps", "max_selections": "0"}, t)
     db.session.refresh(reps)
     assert reps.max_selections == 1
+    post(admin_client, f"/admin/positions/{reps.id}/update", {"name": "Reps", "max_selections": "500"}, t)
+    db.session.refresh(reps)
+    assert reps.max_selections == 100
 
 
 def test_candidate_dialog_can_set_status(admin_client, election, token):

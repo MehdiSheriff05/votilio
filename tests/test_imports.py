@@ -23,24 +23,24 @@ def test_voter_rules():
     assert "Already invited" in report.rows[4].errors["email"]
 
 
-def test_candidate_rules_slots_unknown_and_duplicates():
-    positions = {"president": {"name": "President", "slots": 2, "names": {"amina"}}}
+def test_candidate_rules_unknown_and_duplicates():
+    positions = {"president": {"name": "President", "names": {"amina"}}}
     rows = [{"position": "president", "name": "Daniel"}, {"position": "President", "name": "Third"},
             {"position": "Treasurer", "name": "Priya"}, {"position": "President", "name": "amina"},
             {"position": "", "name": "X"}, {"position": "President", "name": ""},
             {"position": "President", "name": "Z", "photo_url": "javascript:alert(1)"}]
     r = validate_candidates(rows, positions)
     errs = [bool(x.errors) for x in r.rows]
-    assert errs == [False, True, True, True, True, True, True]
-    assert "full" in r.rows[1].errors["position"] and "Unknown position" in r.rows[2].errors["position"]
+    assert errs == [False, False, True, True, True, True, True]  # a third candidate is fine: no cap
+    assert "Unknown position" in r.rows[2].errors["position"]
     assert "http" in r.rows[6].errors["photo_url"]
 
 
-def test_candidate_create_missing_positions_sizes_slots():
+def test_candidate_create_missing_positions():
     rows = [{"position": "Secretary", "name": "A"}, {"position": "secretary", "name": "B"}, {"position": "Chair", "name": "C"}]
     r = validate_candidates(rows, {}, create_missing=True)
     assert all(x.ok for x in r.rows)
-    assert {p["name"]: p["slots"] for p in r.new_positions} == {"Secretary": 2, "Chair": 1}
+    assert sorted(p["name"] for p in r.new_positions) == ["Chair", "Secretary"]
 
 
 def test_csv_formula_injection_neutralised():
@@ -96,6 +96,6 @@ def test_candidate_import_creates_positions_and_respects_order(admin_client, ele
     body = r.get_json()
     assert body["created"] == 3 and body["new_positions"] == 1
     treasurer = Position.query.filter_by(name="Treasurer").one()
-    assert treasurer.candidate_slots == 2 and [c.name for c in treasurer.candidates] == ["Priya", "Omar"]
+    assert [c.name for c in treasurer.candidates] == ["Priya", "Omar"]
     third = Candidate.query.filter_by(name="Third").one()
     assert third.photo_url == "https://x.test/a.jpg" and third.order_index == 3

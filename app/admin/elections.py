@@ -151,20 +151,20 @@ def delete_election(election_id):
 
 # ---- positions -------------------------------------------------------------
 
-def _slots(raw) -> int:
+def _unused_slots(raw) -> int:
     try:
         return max(1, min(50, int(raw)))
     except (TypeError, ValueError):
         return 1
 
 
-def _picks(raw, slots: int, default: int = 1) -> int:
-    """How many candidates a voter may choose in a position (1 up to the number of candidate slots)."""
+def _picks(raw, default: int = 1) -> int:
+    """How many candidates a voter may choose in a position. Any number of people can stand; only this is limited."""
     try:
         value = int(raw)
     except (TypeError, ValueError):
         value = default
-    return max(1, min(value, slots))
+    return max(1, min(value, 100))
 
 
 @admin_bp.route('/elections/<int:election_id>/positions/create', methods=['POST'])
@@ -175,11 +175,9 @@ def create_position(election_id):
     name = request.form.get('name', '').strip()
     if not name:
         return fail('Give the position a name.', url)
-    slots = _slots(request.form.get('candidate_slots', '1'))
     position = Position(
         election=election, name=name[:128], description=request.form.get('description', '').strip(),
-        candidate_slots=slots,
-        max_selections=_picks(request.form.get('max_selections'), slots),
+        max_selections=_picks(request.form.get('max_selections')),
         order_index=(db.session.query(db.func.max(Position.order_index)).filter_by(election_id=election.id).scalar() or 0) + 1,
     )
     db.session.add(position)
@@ -198,8 +196,7 @@ def update_position(position_id):
         return fail('Give the position a name.', url)
     position.name = name[:128]
     position.description = request.form.get('description', '').strip()
-    position.candidate_slots = _slots(request.form.get('candidate_slots', position.candidate_slots))
-    position.max_selections = _picks(request.form.get('max_selections'), position.candidate_slots, position.max_selections or 1)
+    position.max_selections = _picks(request.form.get('max_selections'), position.max_selections or 1)
     if position.max_selections > 1:
         position.winner_override_id = None
     db.session.commit()
@@ -262,8 +259,6 @@ def reorder_positions(election_id):
 def create_candidate(position_id):
     position = Position.query.get_or_404(position_id)
     url = url_for('admin.setup', election_id=position.election_id)
-    if len(position.candidates) >= position.candidate_slots:
-        return fail(f'{position.name} is full. Raise its slots to add more candidates.', url, 409)
     name = request.form.get('name', '').strip()
     if not name:
         return fail('Give the candidate a name.', url)
@@ -304,7 +299,7 @@ def update_candidate(candidate_id):
     new_position = request.form.get('position_id')
     if new_position and str(new_position).isdigit() and int(new_position) != candidate.position_id:
         target = Position.query.filter_by(id=int(new_position), election_id=candidate.position.election_id).first()
-        if target and len(target.candidates) < target.candidate_slots:
+        if target:
             if candidate.position.winner_override_id == candidate.id:
                 candidate.position.winner_override_id = None
             candidate.position = target
