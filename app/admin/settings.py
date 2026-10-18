@@ -1,4 +1,5 @@
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+import re
+from email.utils import parseaddr
 
 from flask import current_app, jsonify, render_template, request, session, url_for
 
@@ -22,6 +23,20 @@ SAMPLE_CONTEXT = {
     "results_url": "https://vote.example.com/results/council-2026",
 }
 PLACEHOLDERS = list(SAMPLE_CONTEXT.keys())
+
+
+RESEND_KEY = re.compile(r"^re_[A-Za-z0-9_\-]{8,}$")
+RESEND_KEY_HELP = "That doesn't look like a Resend API key. Resend keys start with re_ (create one at resend.com/api-keys)."
+
+
+def _clean_name(value: str) -> str:
+    return re.sub(r"[\x00-\x1f<>]", "", value or "").strip()[:128]
+
+
+def split_sender(raw: str, stored_name: str = ""):
+    """Returns (display name, address). Accepts a bare address or a pasted `Name <address>`."""
+    embedded, address = parseaddr((raw or "").strip())
+    return (stored_name or embedded or "").strip(), (address or (raw or "")).strip()
 
 
 def _env_locks():
@@ -62,19 +77,28 @@ def system_settings():
             except Exception as exc:
                 return fail(f'{label} template error: {exc}', url)
 
+        typed_key = f.get('resend_api_key', '').strip()
+        if typed_key and not RESEND_KEY.match(typed_key):
+            return fail(RESEND_KEY_HELP, url)
+        typed_name, address = split_sender(f.get('mail_sender', ''), _clean_name(f.get('mail_sender_name', '')))
+        if address and not is_valid_email(address):
+            return fail('Enter the sender as an email address, for example vote@yourdomain.com.', url)
+
         settings.email_provider = provider
-        settings.mail_sender = f.get('mail_sender', '').strip() or settings.mail_sender
+        settings.mail_sender = address or settings.mail_sender
+        settings.mail_sender_name = _clean_name(typed_name) or None
         settings.smtp_host = f.get('smtp_host', '').strip()
         settings.smtp_port, settings.smtp_security = port, security
         settings.smtp_user = f.get('smtp_user', '').strip() or None
-        if f.get('smtp_password'):
-            settings.smtp_password_plain = f.get('smtp_password')
-        elif not settings.smtp_user:
-            settings.smtp_password = None
-        if f.get('resend_api_key', '').strip():
-            settings.resend_api_key_plain = f.get('resend_api_key').strip()
-        elif f.get('clear_resend_key') == '1':
-            settings.resend_api_key = None
+        # Only the active provider's secret is written, so a value a browser autofilled into the hidden
+        # panel can never overwrite the other provider's credentials.
+        if provider == 'smtp':
+            if f.get('smtp_password'):
+                settings.smtp_password_plain = f.get('smtp_password')
+            elif not settings.smtp_user:
+                settings.smtp_password = None
+        elif typed_key:
+            settings.resend_api_key_plain = typed_key
         settings.invite_subject = f.get('invite_subject', '').strip() or settings.invite_subject
         settings.invite_body = f.get('invite_body', '').strip() or settings.invite_body
         settings.reminder_subject = f.get('reminder_subject', '').strip() or settings.reminder_subject
@@ -86,10 +110,12 @@ def system_settings():
         return done('Email settings saved.', url)
 
     cfg = load_config(settings)
+    sender_name, sender_address = split_sender(settings.mail_sender, settings.mail_sender_name or "")
     return render_template(
         'admin/settings_email.html', settings=settings, section='email', placeholders=PLACEHOLDERS,
         locks=_env_locks(), effective_provider=cfg.provider,
         has_resend_key=bool(cfg.resend_api_key), has_smtp_password=bool(settings.smtp_password),
+        sender_name=sender_name, sender_address=sender_address,
     )
 
 
@@ -102,11 +128,19 @@ def test_email():
     to = (data.get('to') or '').strip()
     if not is_valid_email(to):
         return jsonify(ok=False, error='Enter a valid recipient address.'), 400
+    typed_key = (data.get('resend_api_key') or '').strip()
+    if typed_key and not RESEND_KEY.match(typed_key):
+        return jsonify(ok=False, error=RESEND_KEY_HELP), 400
+    if 'mail_sender' in data:
+        name, address = split_sender(data.get('mail_sender') or '', _clean_name(data.get('mail_sender_name') or ''))
+        data = dict(data, mail_sender=address, mail_sender_name=name)
     keys = ('provider', 'mail_sender', 'smtp_host', 'smtp_port', 'smtp_security', 'smtp_user', 'smtp_password',
             'resend_api_key')
     overrides = {k: data[k] for k in keys if k in data and data[k] not in (None, '')}
     if 'smtp_user' in data and data['smtp_user'] == '':
         overrides['smtp_user'] = ''
+    if 'mail_sender_name' in data:
+        overrides['mail_sender_name'] = data['mail_sender_name'] or ''
     try:
         config = load_config(overrides=overrides)
     except (TypeError, ValueError):

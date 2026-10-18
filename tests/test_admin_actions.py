@@ -205,7 +205,7 @@ def test_test_email_endpoint_uses_unsaved_values(admin_client, token):
     with patch("app.mailer.resend.requests.post") as post:
         post.return_value.status_code = 200
         post.return_value.json.return_value = {"id": "t1"}
-        r = jpost(admin_client, "/admin/settings/email/test", {"to": "me@example.com", "provider": "resend", "resend_api_key": "re_x", "mail_sender": "V <v@example.com>"}, t)
+        r = jpost(admin_client, "/admin/settings/email/test", {"to": "me@example.com", "provider": "resend", "resend_api_key": "re_testkey12345", "mail_sender": "V <v@example.com>"}, t)
     assert r.get_json()["ok"] and post.call_args[1]["json"]["to"] == ["me@example.com"]
     assert jpost(admin_client, "/admin/settings/email/test", {"to": "nope"}, t).status_code == 400
 
@@ -275,3 +275,83 @@ def test_bulk_key_export_is_super_admin_only(app, client, election, token):
     client.post("/admin/login", data={"username": "reg", "password": "password123", "csrf_token": token()})
     assert client.get(f"/admin/elections/{election.id}/voter-keys.csv").status_code == 302
     assert client.get(f"/admin/elections/{election.id}/voters").status_code == 200
+
+
+def _email_form(**over):
+    base = {"email_provider": "resend", "resend_api_key": "", "smtp_host": "", "smtp_port": "587", "smtp_security": "starttls",
+            "mail_sender": "no-reply@voting.nexuratechnologies.co.tz", "mail_sender_name": "",
+            "invite_subject": "i", "invite_body": "i", "reminder_subject": "r", "reminder_body": "r"}
+    base.update(over)
+    return base
+
+
+def test_sender_name_is_saved_and_used_in_the_from_header(admin_client, token):
+    t = token("/admin/settings/email")
+    r = form(admin_client, "/admin/settings/email", _email_form(mail_sender_name="Nexura Voting", resend_api_key="re_realkey123456"), t)
+    assert r.get_json()["ok"]
+    s = SystemSettings.query.first()
+    assert s.mail_sender == "no-reply@voting.nexuratechnologies.co.tz" and s.mail_sender_name == "Nexura Voting"
+    from app.mailer import load_config
+    assert load_config().sender == "Nexura Voting <no-reply@voting.nexuratechnologies.co.tz>"
+    page = admin_client.get("/admin/settings/email").get_data(as_text=True)
+    assert 'value="Nexura Voting"' in page and "Nexura Voting &lt;no-reply@voting.nexuratechnologies.co.tz&gt;" in page
+    with patch("app.mailer.resend.requests.post") as post:
+        post.return_value.status_code = 200
+        post.return_value.json.return_value = {"id": "x"}
+        jpost(admin_client, "/admin/settings/email/test", {"to": "me@example.com"}, t)
+    assert post.call_args[1]["json"]["from"] == "Nexura Voting <no-reply@voting.nexuratechnologies.co.tz>"
+
+
+def test_sender_name_can_be_cleared_and_pasted_name_is_split(admin_client, token):
+    t = token("/admin/settings/email")
+    form(admin_client, "/admin/settings/email", _email_form(mail_sender="Votes Team <vote@example.com>"), t)
+    s = SystemSettings.query.first()
+    assert (s.mail_sender, s.mail_sender_name) == ("vote@example.com", "Votes Team")
+    form(admin_client, "/admin/settings/email", _email_form(mail_sender="vote@example.com", mail_sender_name=""), t)
+    s = SystemSettings.query.first()
+    assert s.mail_sender_name is None
+    from app.mailer import load_config
+    assert load_config().sender == "vote@example.com"
+    assert form(admin_client, "/admin/settings/email", _email_form(mail_sender="not an address"), t).status_code == 400
+
+
+def test_legacy_name_in_the_address_field_still_works(app):
+    from app.mailer import load_config
+    s = SystemSettings.get_or_create()
+    s.mail_sender, s.mail_sender_name = "Old Name <old@example.com>", None
+    db.session.commit()
+    assert load_config().sender == "Old Name <old@example.com>"
+
+
+def test_sender_name_cannot_inject_headers(app):
+    from app.mailer.base import format_sender
+    out = format_sender("Eve\r\nBcc: x@y.z", "a@b.co")
+    assert "\n" not in out and "\r" not in out
+
+
+def test_resend_key_must_look_like_a_resend_key_and_is_not_saved_otherwise(admin_client, token):
+    t = token("/admin/settings/email")
+    for bad in ["hunter2hunter2", "Pa55word!", "re_", "rex_abcdefgh12"]:
+        r = form(admin_client, "/admin/settings/email", _email_form(resend_api_key=bad), t)
+        assert r.status_code == 400 and "re_" in r.get_json()["message"], bad
+    assert SystemSettings.query.first() is None or not SystemSettings.query.first().resend_api_key
+    bad_test = jpost(admin_client, "/admin/settings/email/test", {"to": "me@example.com", "provider": "resend", "resend_api_key": "adminpassword1"}, t)
+    assert bad_test.status_code == 400
+
+
+def test_autofilled_smtp_password_cannot_overwrite_anything_when_resend_is_active(admin_client, token):
+    t = token("/admin/settings/email")
+    form(admin_client, "/admin/settings/email", _email_form(email_provider="smtp", smtp_host="smtp.example.com", smtp_password="real-smtp-pass"), t)
+    form(admin_client, "/admin/settings/email", _email_form(email_provider="resend", resend_api_key="re_realkey123456", smtp_password="an-admin-password"), t)
+    s = SystemSettings.query.first()
+    assert s.smtp_password_plain == "real-smtp-pass" and s.resend_api_key_plain == "re_realkey123456"
+    form(admin_client, "/admin/settings/email", _email_form(email_provider="smtp", smtp_host="smtp.example.com", resend_api_key="an-admin-password"), t)
+    assert SystemSettings.query.first().resend_api_key_plain == "re_realkey123456"
+
+
+def test_secret_fields_opt_out_of_password_managers(admin_client):
+    html = admin_client.get("/admin/settings/email").get_data(as_text=True)
+    import re
+    for name in ("resend_api_key", "smtp_password"):
+        tag = re.search(r'<input[^>]*name="%s"[^>]*>' % name, html).group(0)
+        assert 'autocomplete="new-password"' in tag and "data-secret" in tag and "data-1p-ignore" in tag, name

@@ -1,3 +1,4 @@
+import re
 from dataclasses import dataclass
 from typing import List, Optional
 
@@ -47,3 +48,17 @@ class Mailer:
 
 def clean_header(value: str) -> str:
     return " ".join((value or "").replace("\r", " ").replace("\n", " ").split())
+
+
+_PLAIN_NAME = re.compile(r"^[A-Za-z0-9 .'_-]+$")
+
+
+def format_sender(name: str, address: str) -> str:
+    """Build the From value: `Name <address>`, or just the address when no name is set."""
+    name = clean_header(name)[:128]
+    address = clean_header(address)
+    if not name:
+        return address
+    if not _PLAIN_NAME.match(name):
+        name = '"' + name.replace("\\", "\\\\").replace('"', '\\"') + '"'
+    return f"{name} <{address}>"

@@ -248,6 +248,7 @@ class SystemSettings(db.Model):
     smtp_user = db.Column(db.String(255), nullable=True)
     smtp_password = db.Column(db.String(255), nullable=True)
     mail_sender = db.Column(db.String(255), nullable=False, default="no-reply@votilio.local")
+    mail_sender_name = db.Column(db.String(128), nullable=True)
     invite_subject = db.Column(db.String(255), nullable=False, default="Your Votilio key for {{ election_name }}")
     invite_body = db.Column(db.Text, nullable=False, default="You are invited to vote in '{{ election_name }}'.\n\nElection code: {{ election_code }}\nVoting key: {{ voting_key }}\n\nVote here: {{ vote_url }}\n")
     reminder_subject = db.Column(db.String(255), nullable=False, default="Reminder: vote in {{ election_name }}")

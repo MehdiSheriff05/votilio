@@ -88,7 +88,8 @@ Everything is read from environment variables, normally through `.env`.
 | `DISPLAY_TIMEZONE` | `GMT+4` | Zone or offset used to show and enter dates. Can also be changed under Settings > General. |
 | `EMAIL_PROVIDER` | (admin setting) | `resend` or `smtp`. When set, it overrides the admin setting. |
 | `RESEND_API_KEY` | | Resend API key. Overrides the admin setting. |
-| `MAIL_SENDER` | | The From address, for example `Votilio <vote@example.com>`. |
+| `MAIL_SENDER` | | The address mail is sent from, for example `vote@example.com`. |
+| `MAIL_SENDER_NAME` | | The name recipients see next to the address, for example `Votilio Elections`. Optional. |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURITY`, `SMTP_USER`, `SMTP_PASSWORD` | | SMTP details. `SMTP_SECURITY` is `starttls`, `ssl` or `none`. |
 | `SESSION_COOKIE_SECURE` | `true` in production | Set to `false` only for plain HTTP testing. |
 | `TRUSTED_PROXY_COUNT` | `1` in production | Number of reverse proxies in front of the app. |
@@ -100,10 +101,12 @@ Everything is read from environment variables, normally through `.env`.
 
 Open Settings > Email as a super admin and choose a provider. The page has a "Send test" button that uses the values currently on screen, so you can check a configuration before saving it.
 
-- **Resend:** create an API key, verify your sending domain in Resend, and use a sender address on that domain.
+- **Resend:** create an API key (it starts with `re_`), verify your sending domain in Resend, and use a sender address on that domain.
 - **SMTP:** enter host, port, security mode (`starttls` normally on port 587, `ssl` on 465), username and password.
 
-Passwords and API keys saved through the admin are encrypted in the database and are never displayed again. Values set in `.env` take precedence over the admin settings.
+Set a **Sender name** as well as the address. Without a name, mail programs show only the part before the `@` (for example `no-reply`); with one, recipients see `Nexura Voting <no-reply@yourdomain.com>`.
+
+Passwords and API keys saved through the admin are encrypted in the database and are never displayed again. Only the active provider's secret is saved, and a Resend key that doesn't start with `re_` is rejected, so a password filled in by a browser can't be stored by mistake. Values set in `.env` take precedence over the admin settings.
 
 Invitation and reminder wording can be edited on the same page. The available placeholders are `election_name`, `election_code`, `voting_key`, `vote_url`, `recipient`, `recipient_email`, `opening_time`, `closing_time` and, for the results email, `results_url`.
 

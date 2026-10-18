@@ -2,7 +2,9 @@ from typing import Iterable, List, Optional
 
 from flask import current_app
 
-from app.mailer.base import MailConfig, Mailer, Message, SendResult
+from email.utils import parseaddr
+
+from app.mailer.base import MailConfig, Mailer, Message, SendResult, format_sender
 from app.mailer.render import text_to_html
 from app.mailer.resend import ResendMailer
 from app.mailer.smtp import SMTPMailer
@@ -24,9 +26,15 @@ def load_config(settings=None, overrides: Optional[dict] = None) -> MailConfig:
     provider = overrides.get("provider") or cfg.get("EMAIL_PROVIDER") or settings.email_provider or "smtp"
     key = overrides.get("resend_api_key") or cfg.get("RESEND_API_KEY") or settings.resend_api_key_plain
     password = overrides.get("smtp_password") or settings.smtp_password_plain or cfg.get("SMTP_PASSWORD") or ""
+    raw_sender = (overrides.get("mail_sender") or settings.mail_sender or cfg.get("MAIL_SENDER") or "").strip()
+    embedded_name, address = parseaddr(raw_sender)
+    if "mail_sender_name" in overrides:
+        name = overrides["mail_sender_name"]
+    else:
+        name = settings.mail_sender_name or cfg.get("MAIL_SENDER_NAME") or embedded_name
     return MailConfig(
         provider=provider if provider in PROVIDERS else "smtp",
-        sender=(overrides.get("mail_sender") or settings.mail_sender or cfg.get("MAIL_SENDER") or "").strip(),
+        sender=format_sender(name or "", address or raw_sender),
         resend_api_key=key or "",
         smtp_host=(overrides.get("smtp_host") or settings.smtp_host or cfg.get("SMTP_HOST") or "").strip(),
         smtp_port=int(overrides.get("smtp_port") or settings.smtp_port or cfg.get("SMTP_PORT") or 587),
