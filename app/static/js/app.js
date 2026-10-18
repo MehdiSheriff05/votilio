@@ -65,6 +65,10 @@
       $$("[data-dlg-title]", dlg).forEach(function (n) { n.textContent = btn.dataset.title || n.dataset.dlgTitle; });
       $$("[data-edit-only]", dlg).forEach(function (n) { n.classList.toggle("hide", btn.dataset.mode !== "edit"); });
       $$("[data-create-only]", dlg).forEach(function (n) { n.classList.toggle("hide", btn.dataset.mode === "edit"); });
+      $$("[data-pick]", dlg).forEach(function (box) {
+        var picked = btn.dataset[box.dataset.pick] ? JSON.parse(btn.dataset[box.dataset.pick]) : [];
+        $$("input", box).forEach(function (i) { i.checked = picked.indexOf(Number(i.value)) !== -1; });
+      });
       var prev = $("[data-photo-preview]", dlg);
       if (prev) { prev.innerHTML = btn.dataset.photo ? '<img class="avatar" style="width:48px;height:48px" alt="" src="' + esc(btn.dataset.photo) + '">' : ""; }
     }

@@ -1,0 +1,42 @@
+{% extends 'admin/settings_shell.html' %}
+{% from '_macros.html' import icon, csrf %}
+{% block page_title %}Groups{% endblock %}
+{% block crumb_title %}Groups{% endblock %}
+{% block settings_content %}
+<div class="page-head"><div class="grow"><h1>Groups</h1><p>Put admins in a group, then give the group access to elections. Members can manage those elections and no others.</p></div>
+  <div class="page-actions"><button class="btn btn-primary" data-open="#group-dialog" data-mode="create" data-title="New group" data-action="{{ url_for('admin.create_group') }}">{{ icon('plus') }}New group</button></div></div>
+<div class="stack">
+{% for g in groups %}
+  <div class="card">
+    <div class="card-head"><h2>{{ g.name }}</h2>
+      <button class="btn btn-sm" data-open="#group-dialog" data-mode="edit" data-title="Edit {{ g.name }}" data-action="{{ url_for('admin.update_group', group_id=g.id) }}" data-fill='{{ {"name": g.name}|tojson }}' data-members="{{ g.members|map(attribute='id')|list|tojson|forceescape }}" data-elections="{{ g.elections|map(attribute='id')|list|tojson|forceescape }}">{{ icon('edit') }}Edit</button>
+      <form method="post" action="{{ url_for('admin.delete_group', group_id=g.id) }}" data-async data-reload data-confirm="Delete the group {{ g.name }}? Its members keep any access they have another way." data-confirm-title="Delete group" data-confirm-ok="Delete">{{ csrf() }}<button class="btn btn-ghost btn-icon btn-sm" aria-label="Delete {{ g.name }}">{{ icon('trash') }}</button></form></div>
+    <div class="card-body">
+      <div class="label">Members ({{ g.members|length }})</div>
+      <p style="margin:4px 0 14px">{% if g.members %}{{ g.members|map(attribute='username')|join(', ') }}{% else %}<span class="faint">No members yet</span>{% endif %}</p>
+      <div class="label">Can manage ({{ g.elections|length }})</div>
+      <p style="margin:4px 0 0">{% if g.elections %}{{ g.elections|map(attribute='name')|join(', ') }}{% else %}<span class="faint">No elections yet</span>{% endif %}</p>
+    </div>
+  </div>
+{% else %}
+  <div class="card empty"><div class="ic-wrap">{{ icon('users') }}</div><h3>No groups yet</h3><p>Groups make it easy to give a whole committee access to the same elections.</p>
+    <button class="btn btn-primary" data-open="#group-dialog" data-mode="create" data-title="New group" data-action="{{ url_for('admin.create_group') }}">{{ icon('plus') }}New group</button></div>
+{% endfor %}
+</div>
+
+<dialog id="group-dialog" aria-labelledby="group-title">
+  <form class="dlg" method="post" data-async data-reload>
+    {{ csrf() }}
+    <div class="dlg-head"><h2 id="group-title" data-dlg-title>New group</h2><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close aria-label="Close">{{ icon('x') }}</button></div>
+    <div class="dlg-body">
+      <div class="field"><label class="label" for="g-name">Name</label><input class="input" id="g-name" name="name" required maxlength="80" autocomplete="off" placeholder="Student council committee"></div>
+      <div class="field"><span class="label">Members</span>
+        <div class="pick-list" data-pick="members">{% for a in admins %}<label class="check"><input class="cb" type="checkbox" name="members" value="{{ a.id }}"> {{ a.username }}</label>{% else %}<span class="faint">No regular admins yet. Add some under Admins.</span>{% endfor %}</div>
+        <span class="hint">Super admins already manage everything, so they aren't listed.</span></div>
+      <div class="field"><span class="label">Can manage these elections</span>
+        <div class="pick-list" data-pick="elections">{% for e in elections %}<label class="check"><input class="cb" type="checkbox" name="elections" value="{{ e.id }}"> {{ e.name }}</label>{% else %}<span class="faint">No elections yet.</span>{% endfor %}</div></div>
+    </div>
+    <div class="dlg-foot"><button type="button" class="btn" data-close>Cancel</button><button class="btn btn-primary" type="submit">Save group</button></div>
+  </form>
+</dialog>
+{% endblock %}

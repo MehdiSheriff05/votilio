@@ -1,0 +1,55 @@
+{% extends 'admin/workspace.html' %}
+{% from '_macros.html' import icon, csrf %}
+{% block page_title %}{{ election.name }} · Access{% endblock %}
+{% block ws_content %}
+<div class="stack" data-region="access-body">
+  <div class="notice">{{ icon('info') }}<div>Admins and groups listed here can manage this election: its ballot, voters, emails and results. Everyone else, apart from super admins, can't see it. Super admins manage every election.</div></div>
+
+  <div class="card">
+    <div class="card-head"><h2>Admins</h2></div>
+    {% for a in election.admins %}
+    <div class="vrow" style="grid-template-columns: 40px minmax(0,1fr) auto" role="row">
+      <span class="avatar">{{ a.username[:2]|upper }}</span>
+      <div class="who"><b>{{ a.username }}</b><span>Admin</span></div>
+      <form method="post" action="{{ url_for('admin.remove_election_access', election_id=election.id) }}" data-async data-swap="access-body" data-confirm="Remove {{ a.username }} from this election? They will no longer be able to see it." data-confirm-title="Remove admin" data-confirm-ok="Remove">
+        {{ csrf() }}<input type="hidden" name="kind" value="admin"><input type="hidden" name="id" value="{{ a.id }}">
+        <button class="btn btn-ghost btn-sm" type="submit">{{ icon('x') }}Remove</button></form>
+    </div>
+    {% else %}<div class="faint" style="padding:16px 18px">No individual admins yet.</div>{% endfor %}
+    <form class="card-foot" method="post" action="{{ url_for('admin.add_election_access', election_id=election.id) }}" data-async data-swap="access-body" style="justify-content:flex-start">
+      {{ csrf() }}<input type="hidden" name="kind" value="admin">
+      <label class="sr-only" for="add-admin">Add an admin</label>
+      <select class="select" id="add-admin" name="id" style="max-width:280px" {{ 'disabled' if not addable_admins }}>
+        {% for a in addable_admins %}<option value="{{ a.id }}">{{ a.username }}</option>{% else %}<option value="">Everyone has been added</option>{% endfor %}
+      </select>
+      <button class="btn btn-primary btn-sm" type="submit" {{ 'disabled' if not addable_admins }}>{{ icon('plus') }}Add admin</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h2>Groups</h2></div>
+    {% for g in election.groups %}
+    <div class="vrow" style="grid-template-columns: 40px minmax(0,1fr) auto" role="row">
+      <span class="avatar">{{ icon('users') }}</span>
+      <div class="who"><b>{{ g.name }}</b><span>{{ g.members|length }} member{{ '' if g.members|length == 1 else 's' }}{% if g.members %}: {{ g.members|map(attribute='username')|join(', ') }}{% endif %}</span></div>
+      <form method="post" action="{{ url_for('admin.remove_election_access', election_id=election.id) }}" data-async data-swap="access-body" data-confirm="Remove the group {{ g.name }} from this election? Its members lose access unless they are added another way." data-confirm-title="Remove group" data-confirm-ok="Remove">
+        {{ csrf() }}<input type="hidden" name="kind" value="group"><input type="hidden" name="id" value="{{ g.id }}">
+        <button class="btn btn-ghost btn-sm" type="submit">{{ icon('x') }}Remove</button></form>
+    </div>
+    {% else %}<div class="faint" style="padding:16px 18px">No groups yet. <a href="{{ url_for('admin.manage_groups') }}" style="text-decoration:underline">Manage groups</a></div>{% endfor %}
+    <form class="card-foot" method="post" action="{{ url_for('admin.add_election_access', election_id=election.id) }}" data-async data-swap="access-body" style="justify-content:flex-start">
+      {{ csrf() }}<input type="hidden" name="kind" value="group">
+      <label class="sr-only" for="add-group">Add a group</label>
+      <select class="select" id="add-group" name="id" style="max-width:280px" {{ 'disabled' if not addable_groups }}>
+        {% for g in addable_groups %}<option value="{{ g.id }}">{{ g.name }}</option>{% else %}<option value="">No groups to add</option>{% endfor %}
+      </select>
+      <button class="btn btn-primary btn-sm" type="submit" {{ 'disabled' if not addable_groups }}>{{ icon('plus') }}Add group</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h2>Super admins</h2><span class="faint">Always have access</span></div>
+    <div class="card-body muted">{{ supers|map(attribute='username')|join(', ') }}</div>
+  </div>
+</div>
+{% endblock %}

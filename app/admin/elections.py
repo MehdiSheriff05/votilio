@@ -10,6 +10,7 @@ from app import db
 from app.admin import admin_bp
 from app.admin.helpers import (done, election_stats, fail, is_super, parse_local_datetime, wants_json)
 from app.imports import csv_safe
+from app.access import current_admin, visible_elections
 from app.models import Candidate, Election, Position, Vote, VoterInvitation
 from app.utils import (delete_uploaded_file, login_required, public_url, record_audit,
                        save_uploaded_image, super_admin_required, utc_naive_to_local_input)
@@ -33,7 +34,7 @@ def _slug_code(name: str) -> str:
 @admin_bp.route('/')
 @login_required
 def dashboard():
-    elections = Election.query.order_by(Election.id.desc()).all()
+    elections = visible_elections().all()
     cards = [{"election": e, "stats": election_stats(e)} for e in elections]
     return render_template('admin/elections.html', cards=cards)
 
@@ -61,6 +62,9 @@ def create_election():
                 end_time=end_time, is_active=True, access_code=access_code,
                 theme_primary=_color(form.get('theme_primary')),
             )
+            admin = current_admin()
+            if admin and not admin.is_super_admin:
+                election.admins.append(admin)  # creators keep the elections they make
             db.session.add(election)
             db.session.commit()
             record_audit('election_created', f"Election '{election.name}' created", election_id=election.id)

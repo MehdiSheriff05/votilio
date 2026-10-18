@@ -27,6 +27,7 @@
   <a class="ws-tab {{ 'active' if section == 'setup' }}" href="{{ url_for('admin.setup', election_id=election.id) }}">{{ icon('sliders') }}Setup</a>
   <a class="ws-tab {{ 'active' if section == 'voters' }}" href="{{ url_for('admin.voters', election_id=election.id) }}">{{ icon('users') }}Voters</a>
   <a class="ws-tab {{ 'active' if section == 'results' }}" href="{{ url_for('admin.view_results', election_id=election.id) }}">{{ icon('chart') }}Results</a>
+  {% if session.is_super_admin %}<a class="ws-tab {{ 'active' if section == 'access' }}" href="{{ url_for('admin.election_access', election_id=election.id) }}">{{ icon('shield') }}Access</a>{% endif %}
 </nav>
 {% block ws_content %}{% endblock %}
 {% endblock %}

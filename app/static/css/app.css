@@ -426,3 +426,6 @@ input[type="color"].input::-moz-color-swatch { border: 0; border-radius: 5px; }
 .res-status { margin: 0; }
 .res-status .status-sel { width: 100%; }
 @media (max-width: 720px) { .res-row.has-ctl { grid-template-columns: minmax(0, 1fr) 120px; } .res-row.has-ctl .nm { grid-column: 1; grid-row: 1; } .res-row.has-ctl .res-status { grid-column: 2; grid-row: 1; } .res-row.has-ctl .num { grid-column: 1; grid-row: 2; text-align: left; } .res-row.has-ctl .res-bar { grid-column: 1 / -1; grid-row: 3; order: 0; } }
+
+.pick-list { display: grid; gap: 2px; max-height: 190px; overflow-y: auto; padding: 6px; border: 1px solid var(--border-strong); border-radius: var(--r-md); background: var(--bg-sunken); }
+.pick-list .check { padding: 6px 8px; border-radius: var(--r-sm); } .pick-list .check:hover { background: var(--hover); }

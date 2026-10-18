@@ -4,6 +4,7 @@ from flask import current_app, jsonify, render_template, request, session, url_f
 
 from app import db, limiter
 from app.admin import admin_bp
+from app.access import accessible_election_ids
 from app.admin.helpers import done, fail
 from app.imports import is_valid_email
 from app.mailer import Message, build_mailer, load_config, text_to_html
@@ -231,6 +232,9 @@ def delete_admin(admin_id):
 def audit_logs():
     q = request.args.get('q', '').strip()[:100]
     query = AuditLog.query
+    ids = accessible_election_ids()
+    if ids is not None:  # regular admins see activity on their own elections only
+        query = query.filter(AuditLog.election_id.in_(ids or {-1}))
     if q:
         like = f"%{q.lower()}%"
         query = query.filter(db.or_(db.func.lower(AuditLog.message).like(like),

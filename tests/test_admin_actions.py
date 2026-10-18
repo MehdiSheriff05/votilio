@@ -216,6 +216,9 @@ def test_regular_admin_cannot_reach_settings_or_delete_election(app, client, ele
     u.set_password("password123")
     db.session.add(u)
     db.session.commit()
+    u = AdminUser.query.filter_by(username="reg").one()
+    election.admins.append(u)
+    db.session.commit()
     client.post("/admin/login", data={"username": "reg", "password": "password123", "csrf_token": token()})
     assert client.get("/admin/settings/email").status_code == 302
     r = client.post(f"/admin/elections/{election.id}/delete", data={"csrf_token": token("/admin/")})
@@ -271,6 +274,8 @@ def test_bulk_key_export_is_super_admin_only(app, client, election, token):
     u = AdminUser(username="reg", is_super_admin=False)
     u.set_password("password123")
     db.session.add(u)
+    db.session.commit()
+    election.admins.append(u)
     db.session.commit()
     client.post("/admin/login", data={"username": "reg", "password": "password123", "csrf_token": token()})
     assert client.get(f"/admin/elections/{election.id}/voter-keys.csv").status_code == 302

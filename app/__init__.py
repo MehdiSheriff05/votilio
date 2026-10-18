@@ -54,11 +54,8 @@ def create_app(config_class: type = Config) -> Flask:
         from flask import request, session
         ctx = {"timezone_label": active_timezone_label(), "asset_v": asset_version}
         if request.blueprint == "admin" and session.get("admin_id"):
-            from app.models import Election
-            ctx["palette_elections"] = [
-                {"id": e.id, "name": e.name}
-                for e in Election.query.order_by(Election.id.desc()).limit(50).all()
-            ]
+            from app.access import visible_elections
+            ctx["palette_elections"] = [{"id": e.id, "name": e.name} for e in visible_elections().limit(50).all()]
         return ctx
 
     from app.admin import admin_bp

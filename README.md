@@ -14,7 +14,7 @@ It is a Flask application backed by Postgres and is meant to be run with Docker 
 - Ballot review step before a vote is submitted
 - Live turnout and results for admins, and an optional public results page
 - Resigned or dismissed candidates, a manual winner override, and a results email to voters
-- Admin accounts with two roles (admin and super admin) and an audit log
+- Admin accounts with two roles (admin and super admin), groups of admins, and per-election access, plus an audit log
 - Works on phones and laptops, with light and dark themes
 
 ## Requirements
@@ -134,6 +134,16 @@ Everything below works at any time, including after voting has closed and after 
 
 All of these actions are recorded in the audit log.
 
+## Who can manage which election
+
+Super admins manage every election, plus settings, admin accounts and groups. A regular admin can only see and manage the elections they have been given access to; every other election is hidden from them, including in search, the audit log and direct links.
+
+- **Per election:** open an election as a super admin, go to the Access tab, and add admins or groups.
+- **Groups:** under Settings > Groups, create a group, choose its members and choose which elections it can manage. Everyone in the group gets access to those elections. Removing someone from the group, or the group from an election, takes effect on their next click.
+- **Access can come from both places.** An admin who is added directly and also through a group keeps access until both are removed.
+- **New elections:** a regular admin who creates an election keeps access to it. Deleting an election is still limited to super admins.
+- **Audit log:** regular admins see only events for their own elections.
+
 ## CSV imports
 
 The import screen accepts a file, drag and drop, or pasted rows. Header names are matched loosely (`E-mail`, `Full name` and `Office` all work), column order does not matter, and extra columns are ignored. Templates can be downloaded from the import screen.
@@ -166,6 +176,7 @@ Back up the `pgdata` and `uploads` volumes together, since candidate photos are 
 - Elections, voters and votes carry over unchanged. Voting keys issued last year still work.
 - Databases from the January to February 2026 version, and from any earlier build of this version, upgrade automatically. Their candidate statuses, winner overrides and results email wording are kept.
 - Dates entered in the admin are now interpreted in the display timezone and stored as UTC. Existing stored times were already displayed as UTC, so nothing moves.
+- Admin access is new. On upgrade, every existing regular admin is given access to every existing election, so nobody is locked out in the middle of an election. Remove people from the elections they should not manage on each election's Access tab.
 - Candidate photos lived inside the old container. Copy them into the new `uploads` volume if you still have them.
 
 ## Development

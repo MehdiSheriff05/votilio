@@ -8,11 +8,42 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from app import db
 
 
+admin_group_member = db.Table(
+    'admin_group_member',
+    db.Column('group_id', db.Integer, db.ForeignKey('admin_group.id', ondelete='CASCADE'), primary_key=True),
+    db.Column('admin_id', db.Integer, db.ForeignKey('admin_user.id', ondelete='CASCADE'), primary_key=True),
+)
+election_admin = db.Table(
+    'election_admin',
+    db.Column('election_id', db.Integer, db.ForeignKey('election.id', ondelete='CASCADE'), primary_key=True),
+    db.Column('admin_id', db.Integer, db.ForeignKey('admin_user.id', ondelete='CASCADE'), primary_key=True),
+)
+election_group = db.Table(
+    'election_group',
+    db.Column('election_id', db.Integer, db.ForeignKey('election.id', ondelete='CASCADE'), primary_key=True),
+    db.Column('group_id', db.Integer, db.ForeignKey('admin_group.id', ondelete='CASCADE'), primary_key=True),
+)
+
+
+class AdminGroup(db.Model):
+    """A named set of admins. Giving a group access to an election gives every member access."""
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(80), unique=True, nullable=False)
+    members = db.relationship('AdminUser', secondary=admin_group_member, back_populates='groups',
+                              order_by='AdminUser.username')
+    elections = db.relationship('Election', secondary=election_group, back_populates='groups',
+                                order_by='Election.name')
+
+
 class AdminUser(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(64), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
     is_super_admin = db.Column(db.Boolean, default=False, nullable=False)
+    groups = db.relationship('AdminGroup', secondary=admin_group_member, back_populates='members',
+                             order_by='AdminGroup.name')
+    elections = db.relationship('Election', secondary=election_admin, back_populates='admins',
+                                order_by='Election.name')
 
     def set_password(self, password: str) -> None:
         self.password_hash = generate_password_hash(password)
@@ -35,6 +66,10 @@ class Election(db.Model):
     theme_secondary = db.Column(db.String(7), nullable=True)
     theme_accent = db.Column(db.String(7), nullable=True)
 
+    admins = db.relationship('AdminUser', secondary=election_admin, back_populates='elections',
+                             order_by='AdminUser.username')
+    groups = db.relationship('AdminGroup', secondary=election_group, back_populates='elections',
+                             order_by='AdminGroup.name')
     positions = db.relationship('Position', backref='election', lazy=True, cascade='all, delete-orphan')
     invitations = db.relationship('VoterInvitation', backref='election', lazy=True, cascade='all, delete-orphan')
 

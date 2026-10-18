@@ -9,7 +9,7 @@
     <button type="button" class="btn btn-sm sb-search" data-palette>{{ icon('search') }}Search<span class="kbd">⌘K</span></button>
     <nav>
       <a class="sb-link {{ 'active' if nav == 'elections' }}" href="{{ url_for('admin.dashboard') }}">{{ icon('vote') }}Elections</a>
-      <a class="sb-link {{ 'active' if nav in ('email','general','admins','logs') }}" href="{{ url_for('admin.system_settings') if session.is_super_admin else url_for('admin.audit_logs') }}">{{ icon('sliders') }}Settings</a>
+      <a class="sb-link {{ 'active' if nav in ('email','general','admins','groups','logs') }}" href="{{ url_for('admin.system_settings') if session.is_super_admin else url_for('admin.audit_logs') }}">{{ icon('sliders') }}Settings</a>
     </nav>
     <div class="sb-spacer"></div>
     <div class="sb-foot">
@@ -33,7 +33,7 @@
   <nav class="tabbar" aria-label="Primary">
     <a href="{{ url_for('admin.dashboard') }}" class="{{ 'active' if nav == 'elections' }}">{{ icon('vote') }}Elections</a>
     <button type="button" data-palette>{{ icon('search') }}Search</button>
-    <a href="{{ url_for('admin.system_settings') if session.is_super_admin else url_for('admin.audit_logs') }}" class="{{ 'active' if nav in ('email','general','admins','logs') }}">{{ icon('sliders') }}Settings</a>
+    <a href="{{ url_for('admin.system_settings') if session.is_super_admin else url_for('admin.audit_logs') }}" class="{{ 'active' if nav in ('email','general','admins','groups','logs') }}">{{ icon('sliders') }}Settings</a>
   </nav>
 </div>
 <form id="logout-form" method="post" action="{{ url_for('admin.logout') }}" hidden>{{ csrf() }}</form>

@@ -25,6 +25,7 @@ def app(tmp_path):
         # The fixture keeps one app context open, so Flask-WTF would otherwise reuse a token cached on g.
         from flask import g
         g.pop("csrf_token", None)
+        g.pop("_admin", None)
 
     with app.app_context():
         from sqlalchemy import event

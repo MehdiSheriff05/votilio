@@ -9,6 +9,7 @@
     <a class="sb-link {{ 'active' if section == 'email' }}" href="{{ url_for('admin.system_settings') }}">{{ icon('mail') }}Email</a>
     <a class="sb-link {{ 'active' if section == 'general' }}" href="{{ url_for('admin.general_settings') }}">{{ icon('sliders') }}General</a>
     <a class="sb-link {{ 'active' if section == 'admins' }}" href="{{ url_for('admin.manage_admins') }}">{{ icon('shield') }}Admins</a>
+    <a class="sb-link {{ 'active' if section == 'groups' }}" href="{{ url_for('admin.manage_groups') }}">{{ icon('users') }}Groups</a>
     {% endif %}
     <a class="sb-link {{ 'active' if section == 'logs' }}" href="{{ url_for('admin.audit_logs') }}">{{ icon('list') }}Audit log</a>
   </nav>
