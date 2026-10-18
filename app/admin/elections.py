@@ -340,7 +340,7 @@ def view_results(election_id):
 @login_required
 def publish_results(election_id):
     election = Election.query.get_or_404(election_id)
-    if request.form.get('action') == 'publish':
+    if request.form.get('state') == 'publish':
         if not election.results_slug:
             election.results_slug = _generate_results_slug(election.name)
         election.results_public = True

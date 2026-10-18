@@ -21,9 +21,9 @@
         <div class="row-flex">
           <div class="grow"><h3>Public results page</h3><p class="muted" style="margin-top:2px">Anyone with the link can see the final tally. Nothing about individual voters is shown.</p></div>
           {% if election.results_public %}
-          <input type="hidden" name="action" value="unpublish"><button class="btn" type="submit">Turn off</button>
+          <input type="hidden" name="state" value="unpublish"><button class="btn" type="submit">Turn off</button>
           {% else %}
-          <input type="hidden" name="action" value="publish"><button class="btn btn-primary" type="submit">Publish results</button>
+          <input type="hidden" name="state" value="publish"><button class="btn btn-primary" type="submit">Publish results</button>
           {% endif %}
         </div>
         {% if public_results_url %}

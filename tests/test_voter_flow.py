@@ -119,7 +119,7 @@ def test_admin_session_survives_voter_activity(admin_client, election):
 def test_public_results_only_when_published(admin_client, client, election, token):
     assert client.get("/results/anything").status_code == 404
     t = token(f"/admin/elections/{election.id}/results")
-    admin_client.post(f"/admin/elections/{election.id}/results/publish", data={"action": "publish", "csrf_token": t})
+    admin_client.post(f"/admin/elections/{election.id}/results/publish", data={"state": "publish", "csrf_token": t})
     db.session.refresh(election)
     assert election.results_public
     anon = client.application.test_client()

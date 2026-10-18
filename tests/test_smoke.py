@@ -24,3 +24,13 @@ def test_every_admin_page_renders(admin_client, election):
                  f"/admin/elections/{e}/results.csv"]:
         r = admin_client.get(path)
         assert r.status_code == 200, (path, r.status_code)
+
+
+def test_no_form_control_shadows_the_form_action_property(admin_client, election):
+    """A control named "action" (or "method") makes form.action return the element in browsers and breaks fetch()."""
+    import re
+    e = election.id
+    for path in ["/admin/", f"/admin/elections/{e}/setup", f"/admin/elections/{e}/voters", f"/admin/elections/{e}/results",
+                 "/admin/settings/email", "/admin/settings/admins", "/admin/settings/logs", "/", "/admin/login"]:
+        html = admin_client.get(path).get_data(as_text=True)
+        assert not re.search(r'<(input|select|button|textarea)[^>]*\bname="(action|method|target|enctype)"', html), path

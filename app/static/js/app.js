@@ -53,7 +53,7 @@
     var form = $("form", dlg);
     if (form) {
       form.reset();
-      if (btn.dataset.action) form.action = btn.dataset.action;
+      if (btn.dataset.action) form.setAttribute("action", btn.dataset.action);
       if (btn.dataset.fill) {
         var data = JSON.parse(btn.dataset.fill);
         Object.keys(data).forEach(function (k) {
@@ -133,8 +133,8 @@
       $$("[data-row]:checked").forEach(function (c) { fd.append(form.dataset.collect, c.value); });
     }
     setBusy(form, true);
-    return fetch(form.action, {
-      method: (form.method || "post").toUpperCase(), body: fd, credentials: "same-origin",
+    return fetch(form.getAttribute("action") || location.href, {
+      method: (form.getAttribute("method") || "post").toUpperCase(), body: fd, credentials: "same-origin",
       headers: { "X-Requested-With": "fetch", "Accept": "application/json" }
     }).then(function (r) {
       return r.json().catch(function () { return { ok: false, message: "Unexpected response from the server." }; })
@@ -145,7 +145,7 @@
       toast(data.message || "Saved.", "success");
       var dlg = form.closest("dialog"); if (dlg) dlg.close();
       if (form.dataset.nav) { location.href = data.redirect || form.dataset.nav; return; }
-      if (form.dataset.reload) { location.reload(); return; }
+      if (form.hasAttribute("data-reload")) { location.reload(); return; }
       var regions = form.dataset.swap ? form.dataset.swap.split(",") : null;
       return swapRegions(data.redirect || location.href, regions).then(function () {
         form.dispatchEvent(new CustomEvent("async:saved", { bubbles: true, detail: data }));
