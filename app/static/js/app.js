@@ -352,7 +352,7 @@
     var f = form.elements;
     var body = { to: to, provider: ($('input[name="email_provider"]:checked') || {}).value, mail_sender: f.mail_sender.value,
       smtp_host: f.smtp_host.value, smtp_port: f.smtp_port.value, smtp_security: f.smtp_security.value, smtp_user: f.smtp_user.value,
-      smtp_password: f.smtp_password.value, resend_api_key: f.resend_api_key ? f.resend_api_key.value : "", mail_sender_name: f.mail_sender_name.value };
+      smtp_password: f.smtp_password.value, resend_api_key: f.resend_api_key ? f.resend_api_key.value : "" };
     out.className = "test-result muted"; out.textContent = "Sending…"; btn.classList.add("is-loading");
     fetch(btn.dataset.endpoint, { method: "POST", credentials: "same-origin",
       headers: { "Content-Type": "application/json", "X-CSRFToken": csrf(), "X-Requested-With": "fetch" }, body: JSON.stringify(body) })
@@ -370,20 +370,6 @@
     var s = t.selectionStart == null ? t.value.length : t.selectionStart, en = t.selectionEnd == null ? s : t.selectionEnd;
     t.value = t.value.slice(0, s) + v + t.value.slice(en); t.focus(); t.setSelectionRange(s + v.length, s + v.length);
     t.dispatchEvent(new Event("input", { bubbles: true }));
-  });
-
-  /* ---------- secret fields: stop password managers filling them ---------- */
-  function guardSecrets() {
-    $$("input[data-secret]").forEach(function (i) {
-      if (i.dataset.guarded) return;
-      i.dataset.guarded = "1"; i.readOnly = true;
-      var open = function () { i.readOnly = false; };
-      i.addEventListener("focus", open); i.addEventListener("pointerdown", open);
-    });
-  }
-  on("input", "#mail_sender_name, #mail_sender", function () {
-    var n = ($("#mail_sender_name") || {}).value.trim(), a = ($("#mail_sender") || {}).value.trim(), out = $("#sender-preview");
-    if (out) out.textContent = n ? n + " <" + a + ">" : a;
   });
 
   /* ---------- misc controls ---------- */
@@ -489,5 +475,5 @@
   });
 
   document.addEventListener("regions:updated", initDirty);
-  guardSecrets(); syncProvider(); initDirty(); updatePreview(); updateBallot(); refreshBulk();
+  syncProvider(); initDirty(); updatePreview(); updateBallot(); refreshBulk();
 })();

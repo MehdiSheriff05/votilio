@@ -148,14 +148,3 @@ def test_send_messages_never_raises(app):
     with patch("app.mailer.build_mailer", side_effect=RuntimeError("boom")):
         results = send_messages([Message("a@example.com", "s", "b")])
     assert not results[0].ok and "boom" in results[0].error
-
-
-def test_smtp_from_header_shows_the_sender_name(smtp_server):
-    from app.mailer.base import format_sender
-    handler, port = smtp_server
-    sender = format_sender("Nexura Voting", "no-reply@voting.nexuratechnologies.co.tz")
-    cfg = MailConfig(provider="smtp", sender=sender, smtp_host="127.0.0.1", smtp_port=port, smtp_security="none")
-    assert SMTPMailer(cfg).send(Message("a@example.com", "Hi", "body")).ok
-    raw = handler.messages[0].content.decode()
-    assert "From: Nexura Voting <no-reply@voting.nexuratechnologies.co.tz>" in raw
-    assert handler.messages[0].mail_from == "no-reply@voting.nexuratechnologies.co.tz"

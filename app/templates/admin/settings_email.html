@@ -22,7 +22,7 @@
           {% if locks.resend_key %}
           <input class="input mono" disabled value="Set by the RESEND_API_KEY environment variable"><input type="hidden" name="resend_api_key" value="">
           {% else %}
-          <div class="input-group"><input class="input mono" id="resend_api_key" name="resend_api_key" type="password" autocomplete="new-password" data-secret data-lpignore="true" data-1p-ignore data-bwignore="true" placeholder="{{ '•••••••••••• saved. Type to replace' if has_resend_key else 're_xxxxxxxxxxxx' }}" spellcheck="false"><button type="button" class="btn btn-icon" data-reveal="#resend_api_key" aria-label="Show key"><svg class="ic"><use href="#i-eye"/></svg></button></div>
+          <div class="input-group"><input class="input mono" id="resend_api_key" name="resend_api_key" type="password" autocomplete="off" placeholder="{{ '•••••••••••• saved. Type to replace' if has_resend_key else 're_xxxxxxxxxxxx' }}" spellcheck="false"><button type="button" class="btn btn-icon" data-reveal="#resend_api_key" aria-label="Show key"><svg class="ic"><use href="#i-eye"/></svg></button></div>
           {% endif %}
           <span class="hint">Create a key at resend.com/api-keys. The sender below must use a domain you've verified in Resend.</span></div>
       </div>
@@ -38,17 +38,13 @@
               <option value="none" {{ 'selected' if settings.smtp_security == 'none' }}>None (local testing only)</option></select></div>
           <div class="field"><label class="label" for="smtp_user">Username <span class="faint">(optional)</span></label><input class="input" id="smtp_user" name="smtp_user" value="{{ settings.smtp_user or '' }}" autocomplete="off"></div>
           <div class="field span-2"><label class="label" for="smtp_password">Password</label>
-            <input class="input" id="smtp_password" name="smtp_password" type="password" autocomplete="new-password" data-secret data-lpignore="true" data-1p-ignore data-bwignore="true" placeholder="{{ '•••••••••••• saved. Type to replace' if has_smtp_password else '' }}"></div>
+            <input class="input" id="smtp_password" name="smtp_password" type="password" autocomplete="new-password" placeholder="{{ '•••••••••••• saved. Type to replace' if has_smtp_password else '' }}"></div>
         </div>
       </div>
 
-      <div class="form-grid" style="margin-top:var(--s-4)">
-        <div class="field"><label class="label" for="mail_sender_name">Sender name <span class="faint">(optional)</span></label>
-          <input class="input" id="mail_sender_name" name="mail_sender_name" value="{{ sender_name }}" placeholder="Nexura Voting" maxlength="128" autocomplete="off" data-1p-ignore data-lpignore="true"></div>
-        <div class="field"><label class="label" for="mail_sender">Sender address</label>
-          <input class="input" id="mail_sender" name="mail_sender" value="{{ sender_address }}" placeholder="no-reply@yourdomain.com" autocomplete="off" inputmode="email" data-1p-ignore data-lpignore="true"></div>
-        <span class="hint span-2">Voters see: <b id="sender-preview" style="color:var(--text)">{{ (sender_name ~ ' <' ~ sender_address ~ '>') if sender_name else sender_address }}</b>. Without a name, mail clients show only the part before the @. The address must be on a domain you've verified with your provider.</span>
-      </div>
+      <div class="field"><label class="label" for="mail_sender">Sender</label>
+        <input class="input" id="mail_sender" name="mail_sender" value="{{ settings.mail_sender }}" placeholder="Votilio &lt;vote@yourdomain.com&gt;" autocomplete="off">
+        <span class="hint">Shown as “From”. Use the format <span class="mono">Name &lt;address@domain&gt;</span>.</span></div>
 
       <hr class="divider">
       <div class="field"><label class="label" for="test-to">Send a test email</label>

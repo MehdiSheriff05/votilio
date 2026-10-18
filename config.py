@@ -42,8 +42,7 @@ class Config:
     SMTP_SECURITY = os.environ.get("SMTP_SECURITY", "starttls").lower()
     SMTP_USER = os.environ.get("SMTP_USER", "")
     SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
-    MAIL_SENDER = os.environ.get("MAIL_SENDER", "no-reply@votilio.local")
-    MAIL_SENDER_NAME = os.environ.get("MAIL_SENDER_NAME", "")
+    MAIL_SENDER = os.environ.get("MAIL_SENDER", "Votilio <no-reply@votilio.local>")
     EMAIL_CHUNK_SIZE = int(os.environ.get("EMAIL_CHUNK_SIZE", 25))
 
     # Must stay inside app/static so photo URLs resolve; mount a volume here in Docker.
