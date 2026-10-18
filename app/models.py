@@ -59,31 +59,87 @@ class Election(db.Model):
         return "live"
 
     def summarize_results(self):
+        """Per-position tallies with winners worked out.
+
+        Resigned and dismissed candidates keep their vote counts but cannot win, so the next candidate takes
+        the seat. A position with `max_selections` > 1 fills that many seats. If a manual override is set on a
+        single-seat position, it decides the winner. Candidates level on the last seat are reported as tied.
+        """
         counts = dict(
             db.session.query(Vote.candidate_id, db.func.count(Vote.id))
             .filter(Vote.election_id == self.id)
             .group_by(Vote.candidate_id)
             .all()
         )
+        ballots = VoterInvitation.query.filter_by(election_id=self.id, used=True).count()
         summary = []
         for position in sorted(self.positions, key=lambda p: (p.order_index, p.id)):
-            candidate_counts = []
-            max_votes = 0
-            total_votes = 0
-            for candidate in position.candidates:
-                count = counts.get(candidate.id, 0)
-                candidate_counts.append({'candidate': candidate, 'count': count})
-                total_votes += count
-                max_votes = max(max_votes, count)
-            winners = [item['candidate'] for item in candidate_counts if item['count'] == max_votes and max_votes > 0]
+            seats = max(1, position.max_selections or 1)
+            items = [{'candidate': c, 'count': counts.get(c.id, 0)} for c in position.candidates]
+            total_votes = sum(i['count'] for i in items)
+            eligible = [i for i in items if c_eligible(i['candidate'])]
+            ranked = sorted(eligible, key=lambda i: (-i['count'], i['candidate'].order_index, i['candidate'].id))
+
+            override = None
+            if seats == 1 and position.winner_override_id:
+                override = next((i for i in eligible if i['candidate'].id == position.winner_override_id), None)
+
+            winners, tied = [], []
+            if override:
+                winners = [override]
+            elif ranked and ranked[0]['count'] > 0:
+                cutoff = ranked[min(seats, len(ranked)) - 1]['count']
+                if cutoff == 0:
+                    winners = [i for i in ranked if i['count'] > 0]
+                else:
+                    above = [i for i in ranked if i['count'] > cutoff]
+                    level = [i for i in ranked if i['count'] == cutoff]
+                    if len(above) + len(level) <= seats:
+                        winners = above + level
+                    else:
+                        winners, tied = above, level
+
+            winner_ids = {i['candidate'].id for i in winners}
+            tied_ids = {i['candidate'].id for i in tied}
+            denominator = total_votes if seats == 1 else ballots
+            for item in items:
+                c = item['candidate']
+                item['pct'] = min(100.0, round(100 * item['count'] / denominator, 1)) if denominator else 0
+                if c.is_disqualified:
+                    item['status'] = 'dismissed'
+                elif c.is_declined:
+                    item['status'] = 'resigned'
+                elif c.id in winner_ids:
+                    item['status'] = 'winner'
+                elif c.id in tied_ids:
+                    item['status'] = 'tied'
+                else:
+                    item['status'] = None
             summary.append({
                 'position': position,
-                'candidates': candidate_counts,
-                'winners': winners,
-                'max_votes': max_votes,
+                'seats': seats,
+                'candidates': items,
+                'winners': [i['candidate'] for i in winners],
+                'tied': [i['candidate'] for i in tied],
+                'override': override['candidate'] if override else None,
+                'max_votes': max((i['count'] for i in items), default=0),
                 'total_votes': total_votes,
+                'pct_of': 'votes' if seats == 1 else 'voters',
             })
         return summary
+
+    @staticmethod
+    def winner_conflicts(summary):
+        """People (matched by name) who are currently winning more than one position."""
+        seen = {}
+        for block in summary:
+            for c in block['winners']:
+                seen.setdefault(c.name.strip().casefold(), {'name': c.name.strip(), 'positions': []})['positions'].append(block['position'].name)
+        return [v for v in seen.values() if len(v['positions']) > 1]
+
+
+def c_eligible(candidate) -> bool:
+    return not (candidate.is_declined or candidate.is_disqualified)
 
 
 class Position(db.Model):
@@ -93,8 +149,11 @@ class Position(db.Model):
     description = db.Column(db.Text, nullable=True)
     candidate_slots = db.Column(db.Integer, default=1, nullable=False)
     order_index = db.Column(db.Integer, nullable=False, default=0)
+    max_selections = db.Column(db.Integer, nullable=False, default=1, server_default="1")
+    winner_override_id = db.Column(db.Integer, db.ForeignKey('candidate.id', name='fk_position_winner_override_candidate', use_alter=True), nullable=True)
 
     candidates = db.relationship('Candidate', backref='position', lazy=True, cascade='all, delete-orphan',
+                                 foreign_keys='Candidate.position_id',
                                  order_by='(Candidate.order_index, Candidate.id)')
 
 
@@ -105,6 +164,16 @@ class Candidate(db.Model):
     description = db.Column(db.Text, nullable=True)
     photo_url = db.Column(db.String(255), nullable=True)
     order_index = db.Column(db.Integer, nullable=False, default=0, server_default="0")
+    is_declined = db.Column(db.Boolean, nullable=False, default=False, server_default=db.false())
+    is_disqualified = db.Column(db.Boolean, nullable=False, default=False, server_default=db.false())
+
+    @property
+    def status(self) -> str:
+        return 'dismissed' if self.is_disqualified else ('resigned' if self.is_declined else 'active')
+
+    @property
+    def is_eligible(self) -> bool:
+        return c_eligible(self)
 
 
 class VoterInvitation(db.Model):
@@ -165,6 +234,13 @@ class AuditLog(db.Model):
     invitation = db.relationship('VoterInvitation', backref=db.backref('audit_logs', lazy=True))
 
 
+RESULTS_BODY_DEFAULT = (
+    "Results are now available for '{{ election_name }}'.\n\n"
+    "Election Code: {{ election_code }}\n"
+    "Results link: {{ results_url }}\n"
+)
+
+
 class SystemSettings(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     smtp_host = db.Column(db.String(255), nullable=False, default="localhost")
@@ -180,6 +256,9 @@ class SystemSettings(db.Model):
     email_provider = db.Column(db.String(16), nullable=False, default="smtp", server_default="smtp")
     smtp_security = db.Column(db.String(16), nullable=False, default="starttls", server_default="starttls")
     resend_api_key = db.Column(db.String(512), nullable=True)
+    results_subject = db.Column(db.String(255), nullable=False, default="Results for {{ election_name }}",
+                                server_default="Results for {{ election_name }}")
+    results_body = db.Column(db.Text, nullable=False, default=RESULTS_BODY_DEFAULT)
 
     @property
     def smtp_password_plain(self) -> str:
@@ -220,6 +299,8 @@ class SystemSettings(db.Model):
             invite_body="You are invited to vote in '{{ election_name }}'.\n\nElection code: {{ election_code }}\nVoting key: {{ voting_key }}\n\nVote here: {{ vote_url }}\n",
             reminder_subject="Reminder: vote in {{ election_name }}",
             reminder_body="Friendly reminder to vote in '{{ election_name }}'. Election code: {{ election_code }}, voting key: {{ voting_key }}. Vote at {{ vote_url }}.",
+            results_subject="Results for {{ election_name }}",
+            results_body=RESULTS_BODY_DEFAULT,
             timezone_name=app_obj.config.get("DISPLAY_TIMEZONE", "UTC"),
         )
         instance.smtp_password_plain = app_obj.config.get("SMTP_PASSWORD") or None

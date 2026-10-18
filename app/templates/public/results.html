@@ -6,15 +6,20 @@
 <div class="v-hero" style="text-align:left"><h1>{{ election.name }}</h1><p>Results · {{ totals.voted }} of {{ totals.total }} voters took part ({{ totals.turnout }}%)</p></div>
 {% for block in summary %}
 <section class="v-card" style="padding:6px 0 10px;margin-bottom:14px">
-  <div class="card-head" style="border:0"><h2>{{ block.position.name }}</h2><span class="faint">{{ block.total_votes }} vote{{ '' if block.total_votes == 1 else 's' }}</span></div>
+  <div class="card-head" style="border:0"><h2>{{ block.position.name }}</h2><span class="faint">{{ block.total_votes }} vote{{ '' if block.total_votes == 1 else 's' }}{% if block.seats > 1 %} · {{ block.seats }} seats{% endif %}</span></div>
   {% for item in block.candidates|sort(attribute='count', reverse=True) %}
-  {% set pct = (100 * item.count / block.total_votes)|round(1) if block.total_votes else 0 %}
-  <div class="res-row {{ 'win' if item.candidate in block.winners }}">
-    <div class="nm">{{ photo(item.candidate) }}<span class="truncate">{{ item.candidate.name }}</span>{% if item.candidate in block.winners %}<span class="win-tag">{{ icon('check') }}{{ 'Tied' if block.winners|length > 1 else 'Winner' }}</span>{% endif %}</div>
-    <div class="res-bar"><i style="width: {{ pct }}%"></i></div>
-    <div class="num"><b>{{ item.count }}</b> · {{ pct }}%</div>
+  <div class="res-row {{ 'win' if item.status == 'winner' }} {{ 'out' if item.status in ('resigned', 'dismissed') }}">
+    <div class="nm">{{ photo(item.candidate) }}<span class="truncate">{{ item.candidate.name }}</span>
+      {% if item.status == 'winner' %}<span class="win-tag">{{ icon('check') }}{{ 'Elected' }}</span>
+      {% elif item.status == 'tied' %}<span class="pill pill-warn pill-plain">Tied</span>
+      {% elif item.status == 'resigned' %}<span class="pill pill-plain">Resigned</span>
+      {% elif item.status == 'dismissed' %}<span class="pill pill-plain">Dismissed</span>{% endif %}</div>
+    <div class="res-bar"><i style="width: {{ item.pct }}%"></i></div>
+    <div class="num"><b>{{ item.count }}</b> · {{ item.pct }}%</div>
   </div>
   {% endfor %}
+  {% if block.override %}<p class="faint" style="padding:6px 18px 0;font-size:12.5px">Winner confirmed by the election organisers.</p>{% endif %}
+  {% if block.seats > 1 %}<p class="faint" style="padding:6px 18px 0;font-size:12.5px">Percentages show the share of voters who chose each candidate.</p>{% endif %}
 </section>
 {% endfor %}
 {% endblock %}

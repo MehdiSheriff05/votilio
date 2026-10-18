@@ -10,8 +10,10 @@ It is a Flask application backed by Postgres and is meant to be run with Docker 
 - Voter list management, with per-voter status (not invited, invited, voted)
 - CSV import for voters and for candidates, with a spreadsheet-style editor for fixing mistakes before importing
 - Invitation and reminder emails, sent through Resend or through any SMTP server
+- Positions where voters choose one candidate, or up to a set number of candidates
 - Ballot review step before a vote is submitted
 - Live turnout and results for admins, and an optional public results page
+- Resigned or dismissed candidates, a manual winner override, and a results email to voters
 - Admin accounts with two roles (admin and super admin) and an audit log
 - Works on phones and laptops, with light and dark themes
 
@@ -103,18 +105,34 @@ Open Settings > Email as a super admin and choose a provider. The page has a "Se
 
 Passwords and API keys saved through the admin are encrypted in the database and are never displayed again. Values set in `.env` take precedence over the admin settings.
 
-Invitation and reminder wording can be edited on the same page. The available placeholders are `election_name`, `election_code`, `voting_key`, `vote_url`, `recipient`, `recipient_email`, `opening_time` and `closing_time`.
+Invitation and reminder wording can be edited on the same page. The available placeholders are `election_name`, `election_code`, `voting_key`, `vote_url`, `recipient`, `recipient_email`, `opening_time`, `closing_time` and, for the results email, `results_url`.
 
 ## Running an election
 
 1. **Create the election.** Give it a name, an optional voting window and a brand colour. If you leave the code blank, one is generated.
-2. **Build the ballot.** On the Setup tab, add positions and their candidates, either one at a time or with Import CSV. Drag to change the order.
+2. **Build the ballot.** On the Setup tab, add positions and their candidates, either one at a time or with Import CSV. Drag to change the order. Each position has two limits: the most candidates who can run, and how many candidates a voter may choose (see [Positions with several seats](#positions-with-several-seats)).
 3. **Add voters.** On the Voters tab, import a CSV or add people individually.
 4. **Send invitations.** Each voter receives the election code and their key. Anyone not yet invited can be handled in one pass, and reminders can be sent to people who have not voted.
 5. **Watch turnout** on the Voters and Results tabs. Voting can be paused and resumed at any time.
-6. **Publish results** if you want a public link. The Results tab can also export a CSV.
+6. **Settle the results.** See [After the votes are in](#after-the-votes-are-in).
+7. **Publish results** if you want a public link, and email it to voters. The Results tab can also export a CSV.
 
 Voters who have no email address can still take part. A super admin can export all voting keys as a CSV to hand out in person, and any admin can look up a single voter's key.
+
+### Positions with several seats
+
+Set "Voters can choose up to" to 1 for a normal single-winner position. Set it to 2 or more when several seats are filled from the same position. Voters then tick up to that many candidates, and the same number of top candidates win. A voter who ticks more than the limit is told and has to remove one. Each tick counts as one vote for that candidate, and the percentage shown for these positions is the share of voters who chose the candidate.
+
+### After the votes are in
+
+Everything below works at any time, including after voting has closed and after results have been published.
+
+- **Resigned or dismissed.** On the Results tab, set a candidate's status to Resigned or Dismissed. Their votes stay visible, but they can no longer win, so the next candidate takes the seat. They are also removed from the ballot if voting is still open. A candidate who stands in two positions is two separate candidacies, so a person who has won both can resign from one of them and give up that seat. The page warns you when someone is winning more than one position.
+- **Set the winner by hand.** Each single-seat position has a Winner selector. Use it to settle a tie or to confirm a different outcome. Choose "By vote count" to go back to the automatic result. Public results note that the winner was confirmed by the organisers. For positions with several seats, resign or dismiss candidates instead.
+- **Ties.** If candidates are level on the last seat, both are marked as tied and nobody is picked automatically.
+- **Email the results.** Once the results page is published, the Results tab can email the link to everyone on the list or only to people who voted. The wording is edited under Settings > Email.
+
+All of these actions are recorded in the audit log.
 
 ## CSV imports
 
@@ -146,6 +164,7 @@ Back up the `pgdata` and `uploads` volumes together, since candidate photos are 
 
 - Keep your existing database volume. Set `POSTGRES_USER` and `POSTGRES_PASSWORD` in `.env` to the values your existing database was created with (the old compose file used `postgres` for both). Those settings only take effect when a database is first created, so a mismatch means the app cannot connect, not that data is lost.
 - Elections, voters and votes carry over unchanged. Voting keys issued last year still work.
+- Databases from the January to February 2026 version, and from any earlier build of this version, upgrade automatically. Their candidate statuses, winner overrides and results email wording are kept.
 - Dates entered in the admin are now interpreted in the display timezone and stored as UTC. Existing stored times were already displayed as UTC, so nothing moves.
 - Candidate photos lived inside the old container. Copy them into the new `uploads` volume if you still have them.
 

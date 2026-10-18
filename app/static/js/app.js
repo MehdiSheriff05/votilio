@@ -178,6 +178,9 @@
   });
   window.addEventListener("pageshow", function () { $$(".is-loading").forEach(function (b) { b.classList.remove("is-loading"); }); });
 
+  /* ---------- selects that save on change ---------- */
+  on("change", "select[data-autosubmit]", function (e, sel) { sel.form.requestSubmit(); });
+
   /* ---------- copy ---------- */
   on("click", "[data-copy]", function (e, btn) {
     var text = btn.dataset.copy;
@@ -229,8 +232,10 @@
       ids = $$("[data-row]:checked").map(function (c) { return Number(c.value); });
       if (!ids.length) { toast("Select at least one voter.", "warning"); return; }
     } else if (btn.dataset.ids) { ids = [Number(btn.dataset.ids)]; }
-    var total = Number(btn.dataset.total || (ids ? ids.length : 0));
-    $("[data-send-title]", dlg).textContent = kind === "reminder" ? "Sending reminders" : "Sending invitations";
+    var audience = ($('input[name="audience"]:checked') || {}).value || "all";
+    var chosen = $('input[name="audience"]:checked');
+    var total = Number((kind === "results" && chosen) ? chosen.dataset.total : (btn.dataset.total || (ids ? ids.length : 0)));
+    $("[data-send-title]", dlg).textContent = kind === "reminder" ? "Sending reminders" : (kind === "results" ? "Emailing results" : "Sending invitations");
     var bar = $("[data-send-bar]", dlg), big = $("[data-send-big]", dlg), sub = $("[data-send-sub]", dlg), fails = $("[data-send-fails]", dlg), close = $("[data-send-done]", dlg);
     bar.style.width = "0%"; big.textContent = "0"; sub.textContent = "Starting…"; fails.classList.add("hide"); fails.innerHTML = "";
     close.disabled = true; close.textContent = "Working…";
@@ -249,7 +254,7 @@
       fetch(endpoint, {
         method: "POST", credentials: "same-origin",
         headers: { "Content-Type": "application/json", "X-CSRFToken": csrf(), "X-Requested-With": "fetch", "Accept": "application/json" },
-        body: JSON.stringify({ kind: kind, ids: ids, cursor: cursor })
+        body: JSON.stringify({ kind: kind, ids: ids, cursor: cursor, audience: audience })
       }).then(function (r) { return r.json().then(function (d) { d._ok = r.ok; return d; }); }).then(function (d) {
         if (!d._ok || d.ok === false) { finish(d.message || "Sending stopped because of an error."); toast(d.message || "Sending failed.", "danger"); return; }
         sent += d.sent; failed = failed.concat(d.failed || []); cursor = d.cursor;
@@ -395,6 +400,14 @@
     if (t) t.textContent = chosen + " of " + groups.length;
     if (bar) bar.style.width = (100 * chosen / groups.length) + "%";
   }
+  on("change", "fieldset.v-pos[data-max] input", function (e, input) {
+    var fs = input.closest("fieldset"), max = Number(fs.dataset.max);
+    var picked = $$("input:checked", fs);
+    if (picked.length > max) {
+      input.checked = false;
+      toast("You can choose up to " + max + " for " + fs.dataset.name + ".", "warning");
+    }
+  });
   on("change", "fieldset.v-pos input", updateBallot);
   on("click", "[data-clear-choice]", function (e, b) {
     $$("input", b.closest("fieldset")).forEach(function (i) { i.checked = false; }); updateBallot();

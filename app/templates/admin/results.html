@@ -31,25 +31,67 @@
         {% endif %}
       </div>
     </form>
+    {% if election.results_public %}
+    <div class="card-foot" style="justify-content:space-between;flex-wrap:wrap;gap:12px">
+      <div class="seg" role="radiogroup" aria-label="Who should get the results email">
+        <label><input type="radio" name="audience" value="all" data-total="{{ sendable.all }}" checked><span>Everyone on the list ({{ sendable.all }})</span></label>
+        <label><input type="radio" name="audience" value="voted" data-total="{{ sendable.voted }}"><span>Only people who voted ({{ sendable.voted }})</span></label>
+      </div>
+      <button type="button" class="btn btn-primary" data-send data-kind="results" data-label="results emails" data-endpoint="{{ url_for('admin.send_chunk', election_id=election.id) }}" data-total="{{ sendable.all }}" {{ 'disabled' if not sendable.all }}>{{ icon('mail') }}Email the results link</button>
+    </div>
+    {% endif %}
   </div>
 
+  <div data-region="results-body">
+  {% for person in conflicts %}
+  <div class="notice notice-warn">{{ icon('alert') }}<div><b>{{ person.name }}</b> is winning {{ person.positions|join(' and ') }}. If they should only keep one, mark their other candidacy as <b>Resigned</b> and the next candidate takes that seat, or pick the winner by hand under that position.</div></div>
+  {% endfor %}
   {% for block in summary %}
+  {% set pos = block.position %}
   <section class="card">
-    <div class="card-head"><h2>{{ block.position.name }}</h2><span class="faint">{{ block.total_votes }} vote{{ '' if block.total_votes == 1 else 's' }}</span></div>
+    <div class="card-head"><h2>{{ pos.name }}</h2>
+      <span class="faint">{% if block.seats > 1 %}{{ block.seats }} seats · {% endif %}{{ block.total_votes }} vote{{ '' if block.total_votes == 1 else 's' }}</span></div>
+    {% if block.tied %}<div class="notice notice-warn" style="margin:12px 18px 0">{{ icon('alert') }}<div>{{ block.tied|map(attribute='name')|join(', ') }} are level on {{ 'the last seat' if block.seats > 1 else 'votes' }}. {% if block.seats == 1 %}Pick the winner below.{% else %}Resign or dismiss a candidate to settle it.{% endif %}</div></div>{% endif %}
     <div style="padding:8px 0">
       {% for item in block.candidates|sort(attribute='count', reverse=True) %}
-      {% set pct = (100 * item.count / block.total_votes)|round(1) if block.total_votes else 0 %}
-      <div class="res-row {{ 'win' if item.candidate in block.winners }}">
-        <div class="nm">{{ photo(item.candidate) }}<span class="truncate">{{ item.candidate.name }}</span>{% if item.candidate in block.winners %}<span class="win-tag">{{ icon('check') }}{{ 'Leading' if block.winners|length == 1 and not election.status() == 'closed' else ('Tied' if block.winners|length > 1 else 'Winner') }}</span>{% endif %}</div>
-        <div class="res-bar"><i style="width: {{ pct }}%"></i></div>
-        <div class="num"><b>{{ item.count }}</b> · {{ pct }}%</div>
+      {% set c = item.candidate %}
+      <div class="res-row has-ctl {{ 'win' if item.status == 'winner' }} {{ 'out' if item.status in ('resigned', 'dismissed') }}">
+        <div class="nm">{{ photo(c) }}<span class="truncate">{{ c.name }}</span>
+          {% if item.status == 'winner' %}<span class="win-tag">{{ icon('check') }}{{ 'Winner' if block.seats == 1 else 'Elected' }}</span>
+          {% elif item.status == 'tied' %}<span class="pill pill-warn pill-plain">Tied</span>
+          {% elif item.status == 'resigned' %}<span class="pill pill-plain">Resigned</span>
+          {% elif item.status == 'dismissed' %}<span class="pill pill-danger pill-plain">Dismissed</span>{% endif %}</div>
+        <div class="res-bar"><i style="width: {{ item.pct }}%"></i></div>
+        <div class="num"><b>{{ item.count }}</b> · {{ item.pct }}%</div>
+        <form class="res-status" method="post" action="{{ url_for('admin.set_candidate_status', candidate_id=c.id) }}" data-async data-swap="results-body">
+          {{ csrf() }}
+          <label class="sr-only" for="st-{{ c.id }}">Status of {{ c.name }}</label>
+          <select class="select status-sel" id="st-{{ c.id }}" name="state" data-autosubmit>
+            <option value="active" {{ 'selected' if c.status == 'active' }}>Active</option>
+            <option value="resigned" {{ 'selected' if c.status == 'resigned' }}>Resigned</option>
+            <option value="dismissed" {{ 'selected' if c.status == 'dismissed' }}>Dismissed</option>
+          </select>
+        </form>
       </div>
       {% else %}<div class="faint" style="padding:10px 18px">No candidates in this position.</div>
       {% endfor %}
     </div>
+    {% if block.seats == 1 and block.candidates %}
+    <form class="win-ctl" method="post" action="{{ url_for('admin.set_position_winner', position_id=pos.id) }}" data-async data-swap="results-body">
+      {{ csrf() }}
+      <label for="win-{{ pos.id }}">Winner</label>
+      <select class="select" id="win-{{ pos.id }}" name="candidate_id" data-autosubmit>
+        <option value="">By vote count{% if not block.override and block.winners %} ({{ block.winners[0].name }}){% endif %}</option>
+        {% for item in block.candidates if item.candidate.is_eligible %}<option value="{{ item.candidate.id }}" {{ 'selected' if block.override and block.override.id == item.candidate.id }}>{{ item.candidate.name }}</option>{% endfor %}
+      </select>
+      {% if block.override %}<span class="pill pill-info pill-plain">Set by hand</span>{% endif %}
+    </form>
+    {% endif %}
   </section>
   {% else %}
   <div class="card empty"><div class="ic-wrap">{{ icon('chart') }}</div><h3>No ballot yet</h3><p>Add positions and candidates in Setup, then results appear here as votes come in.</p></div>
   {% endfor %}
+  </div>
 </div>
+{% include 'partials/send_dialog.html' %}
 {% endblock %}

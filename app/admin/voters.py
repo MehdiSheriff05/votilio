@@ -186,15 +186,21 @@ def _deliver(election: Election, kind: str, invitations: List[VoterInvitation]):
     for inv in invitations:
         if not inv.email:
             continue
-        key = inv.last_generated_key
-        if not key:
-            allocator = allocator or KeyAllocator(election)
-            key = allocator.allocate()
-            inv.set_key(key)
-            inv.last_generated_key = key
-        ctx = _context(election, inv, key)
-        subject_t, body_t = ((settings.invite_subject, settings.invite_body) if kind == 'invite'
-                             else (settings.reminder_subject, settings.reminder_body))
+        if kind == 'results':
+            key = ''
+            ctx = _context(election, inv, key)
+            ctx['results_url'] = public_url('public.public_results', slug=election.results_slug)
+            subject_t, body_t = settings.results_subject, settings.results_body
+        else:
+            key = inv.last_generated_key
+            if not key:
+                allocator = allocator or KeyAllocator(election)
+                key = allocator.allocate()
+                inv.set_key(key)
+                inv.last_generated_key = key
+            ctx = _context(election, inv, key)
+            subject_t, body_t = ((settings.invite_subject, settings.invite_body) if kind == 'invite'
+                                 else (settings.reminder_subject, settings.reminder_body))
         try:
             subject = render_email_template(subject_t, ctx)
             body = render_email_template(body_t, ctx)
@@ -217,7 +223,7 @@ def _deliver(election: Election, kind: str, invitations: List[VoterInvitation]):
             sent += 1
             if kind == 'invite':
                 inv.sent_at, inv.reminder_sent_at = now, None
-            else:
+            elif kind == 'reminder':
                 inv.reminder_sent_at = now
         else:
             failures.append({"id": inv.id, "email": inv.email, "error": result.error or "Unknown error"})
@@ -225,7 +231,11 @@ def _deliver(election: Election, kind: str, invitations: List[VoterInvitation]):
     return sent, failures
 
 
-def _send_query(election: Election, kind: str, ids):
+def _send_query(election: Election, kind: str, ids, audience: str = 'all'):
+    if kind == 'results':
+        q = VoterInvitation.query.filter(
+            VoterInvitation.election_id == election.id, VoterInvitation.email.isnot(None), VoterInvitation.email != "")
+        return q.filter(VoterInvitation.used.is_(True)) if audience == 'voted' else q
     q = VoterInvitation.query.filter(
         VoterInvitation.election_id == election.id, VoterInvitation.used.is_(False),
         VoterInvitation.email.isnot(None), VoterInvitation.email != "")
@@ -243,14 +253,17 @@ def send_chunk(election_id):
     election = Election.query.get_or_404(election_id)
     data = request.get_json(silent=True) or {}
     kind = data.get('kind')
-    if kind not in ('invite', 'reminder'):
+    if kind not in ('invite', 'reminder', 'results'):
         return jsonify(ok=False, message='Unknown send type.'), 400
+    audience = 'voted' if data.get('audience') == 'voted' else 'all'
+    if kind == 'results' and not (election.results_public and election.results_slug):
+        return jsonify(ok=False, message='Publish the results link before emailing it.'), 409
     ids = data.get('ids')
     if ids is not None:
         ids = [int(i) for i in ids if str(i).isdigit()]
     cursor = int(data.get('cursor') or 0)
     size = current_app.config['EMAIL_CHUNK_SIZE']
-    base = _send_query(election, kind, ids)
+    base = _send_query(election, kind, ids, audience)
     total_remaining = base.filter(VoterInvitation.id > cursor).count()
     batch = base.filter(VoterInvitation.id > cursor).order_by(VoterInvitation.id).limit(size).all()
     if not batch:
@@ -259,9 +272,9 @@ def send_chunk(election_id):
     new_cursor = batch[-1].id
     remaining = total_remaining - len(batch)
     if sent:
-        record_audit('invitations_sent' if kind == 'invite' else 'reminders_sent',
-                     f"Sent {sent} {'invitation' if kind == 'invite' else 'reminder'}(s) for {election.name}",
-                     election_id=election.id)
+        event, noun = {'invite': ('invitations_sent', 'invitation'), 'reminder': ('reminders_sent', 'reminder'),
+                       'results': ('results_sent', 'results email')}[kind]
+        record_audit(event, f"Sent {sent} {noun}(s) for {election.name}", election_id=election.id)
     return jsonify(ok=True, done=remaining <= 0, sent=sent, failed=failures, cursor=new_cursor,
                    remaining=remaining, total=total_remaining)
 

@@ -4,18 +4,22 @@
 {% block content %}
 <div class="v-hero" style="text-align:left;margin-bottom:22px">
   <h1>{{ ('Hi ' ~ voter_name.split()[0] ~ ', your ballot') if voter_name else 'Your ballot' }}</h1>
-  <p>Choose one candidate per position. You can skip any position, and you'll review everything before submitting.</p>
+  <p>Pick your candidates for each position. Where a position allows more than one choice, it says so. You can skip any position, and you'll review everything before submitting.</p>
 </div>
 <form id="ballot-form" method="post" action="{{ url_for('public.ballot') }}">
   {{ csrf() }}
+  {% if errors %}<div class="v-err" role="alert" style="margin:0 0 18px">{{ icon('alert') }}<span>{{ errors|join(' ') }}</span></div>{% endif %}
   {% for position in positions %}
-  <fieldset class="v-pos">
-    <legend><b>{{ position.name }}</b><span>{{ position.candidates|length }} candidate{{ '' if position.candidates|length == 1 else 's' }}</span></legend>
+  {% set limit = position.max_selections or 1 %}
+  {% set candidates = position.candidates|selectattr('is_eligible')|list %}
+  {% set picked = draft.get(position.id|string, []) %}
+  <fieldset class="v-pos {{ 'multi' if limit > 1 }}" {% if limit > 1 %}data-max="{{ limit }}" data-name="{{ position.name }}"{% endif %}>
+    <legend><b>{{ position.name }}</b><span>{% if limit > 1 %}Choose up to {{ limit }}{% else %}{{ candidates|length }} candidate{{ '' if candidates|length == 1 else 's' }}{% endif %}</span></legend>
     {% if position.description %}<p class="desc">{{ position.description }}</p>{% endif %}
     <div class="v-cands">
-      {% for c in position.candidates %}
+      {% for c in candidates %}
       <label class="v-cand">
-        <input type="radio" name="position_{{ position.id }}" value="{{ c.id }}" {{ 'checked' if draft.get(position.id|string) == c.id }}>
+        <input type="{{ 'checkbox' if limit > 1 else 'radio' }}" name="position_{{ position.id }}" value="{{ c.id }}" {{ 'checked' if c.id in picked }}>
         <span class="face">
           {% if c.photo_url %}<img class="photo" loading="lazy" decoding="async" alt="" src="{{ c.photo_url if c.photo_url.startswith('http') else url_for('static', filename=c.photo_url) }}">
           {% else %}<span class="photo">{{ initials(c.name) }}</span>{% endif %}
@@ -25,7 +29,7 @@
       </label>
       {% else %}<p class="faint">No candidates for this position.</p>{% endfor %}
     </div>
-    {% if position.candidates %}<button type="button" class="v-clear" data-clear-choice>Clear selection</button>{% endif %}
+    {% if candidates %}<button type="button" class="v-clear" data-clear-choice>Clear selection</button>{% endif %}
   </fieldset>
   {% else %}
   <div class="v-card empty"><h3>This ballot is empty</h3><p>The organisers haven't added any positions yet.</p></div>

@@ -27,10 +27,21 @@ def app(tmp_path):
         g.pop("csrf_token", None)
 
     with app.app_context():
+        from sqlalchemy import event
+
+        @event.listens_for(db.engine, "connect")
+        def _enforce_fks(dbapi_connection, _record):
+            dbapi_connection.execute("PRAGMA foreign_keys=ON")
+
+        db.session.close()
+        db.engine.dispose()
         db.create_all()
         yield app
         db.session.remove()
-        db.drop_all()
+        with db.engine.connect() as conn:
+            conn.exec_driver_sql("PRAGMA foreign_keys=OFF")
+            db.metadata.drop_all(conn)
+            conn.commit()
     shutil.rmtree(static_uploads, ignore_errors=True)
 
 

@@ -19,6 +19,7 @@ SAMPLE_CONTEXT = {
     "election_name": "Student Council 2026", "voting_key": "123456", "election_code": "council-2026",
     "vote_url": "https://vote.example.com/", "recipient": "Alex", "recipient_email": "alex@example.com",
     "opening_time": "2026-05-01 09:00 (UTC)", "closing_time": "2026-05-03 17:00 (UTC)",
+    "results_url": "https://vote.example.com/results/council-2026",
 }
 PLACEHOLDERS = list(SAMPLE_CONTEXT.keys())
 
@@ -53,6 +54,7 @@ def system_settings():
         for label, subject, body in (
             ('Invitation', f.get('invite_subject', ''), f.get('invite_body', '')),
             ('Reminder', f.get('reminder_subject', ''), f.get('reminder_body', '')),
+            ('Results', f.get('results_subject', ''), f.get('results_body', '')),
         ):
             try:
                 render_email_template(subject, SAMPLE_CONTEXT)
@@ -77,6 +79,8 @@ def system_settings():
         settings.invite_body = f.get('invite_body', '').strip() or settings.invite_body
         settings.reminder_subject = f.get('reminder_subject', '').strip() or settings.reminder_subject
         settings.reminder_body = f.get('reminder_body', '').strip() or settings.reminder_body
+        settings.results_subject = f.get('results_subject', '').strip() or settings.results_subject
+        settings.results_body = f.get('results_body', '').strip() or settings.results_body
         db.session.commit()
         record_audit('settings_updated', f'Email settings updated (provider: {settings.email_provider})')
         return done('Email settings saved.', url)

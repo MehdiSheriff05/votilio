@@ -92,6 +92,16 @@ def vote():
     return render_template('public/enter.html', election=election, code=code, error=error)
 
 
+def _limit(position) -> int:
+    return max(1, position.max_selections or 1)
+
+
+def _draft_ids(draft, position):
+    """Draft values are lists of candidate ids; older single-id drafts are tolerated."""
+    value = (draft or {}).get(str(position.id), [])
+    return [value] if isinstance(value, int) else list(value)
+
+
 @public_bp.route('/ballot', methods=['GET', 'POST'])
 def ballot():
     election, invitation = _session_voter()
@@ -103,16 +113,26 @@ def ballot():
         flash('Voting is closed for this election.', 'warning')
         return redirect(url_for('public.vote'))
     positions = _positions(election)
+    errors = []
+    chosen = {k: (v if isinstance(v, list) else [v]) for k, v in (session.get('draft') or {}).items()}
     if request.method == 'POST':
         draft = {}
         for position in positions:
-            raw = request.form.get(f'position_{position.id}', '')
-            if raw.isdigit() and any(c.id == int(raw) for c in position.candidates):
-                draft[str(position.id)] = int(raw)
-        session['draft'] = draft
-        return redirect(url_for('public.review'))
-    return render_template('public/ballot.html', election=election, positions=positions,
-                           draft=session.get('draft', {}), voter_name=session.get('voter_name'))
+            allowed = {c.id for c in position.candidates if c.is_eligible}
+            picked = []
+            for raw in request.form.getlist(f'position_{position.id}'):
+                if raw.isdigit() and int(raw) in allowed and int(raw) not in picked:
+                    picked.append(int(raw))
+            if len(picked) > _limit(position):
+                errors.append(f"{position.name}: choose up to {_limit(position)}.")
+            if picked:
+                draft[str(position.id)] = picked
+        if not errors:
+            session['draft'] = draft
+            return redirect(url_for('public.review'))
+        chosen = draft
+    return render_template('public/ballot.html', election=election, positions=positions, draft=chosen,
+                           errors=errors, voter_name=session.get('voter_name'))
 
 
 @public_bp.route('/ballot/review')
@@ -129,8 +149,9 @@ def review():
         return redirect(url_for('public.ballot'))
     rows = []
     for position in _positions(election):
-        chosen = next((c for c in position.candidates if draft.get(str(position.id)) == c.id), None)
-        rows.append({"position": position, "candidate": chosen})
+        ids = _draft_ids(draft, position)
+        picked = [c for c in position.candidates if c.id in ids and c.is_eligible]
+        rows.append({"position": position, "candidates": picked, "limit": _limit(position)})
     return render_template('public/review.html', election=election, rows=rows, voter_name=session.get('voter_name'))
 
 
@@ -156,12 +177,14 @@ def submit_ballot():
         _clear_voter_session()
         flash('This key has already been used.', 'danger')
         return redirect(url_for('public.vote'))
-    cast = 0
     for position in _positions(election):
-        candidate_id = draft.get(str(position.id))
-        if candidate_id and Candidate.query.filter_by(id=candidate_id, position_id=position.id).first():
+        eligible = {c.id for c in position.candidates if c.is_eligible}
+        picked = []
+        for candidate_id in _draft_ids(draft, position):
+            if candidate_id in eligible and candidate_id not in picked:
+                picked.append(candidate_id)
+        for candidate_id in picked[:_limit(position)]:
             db.session.add(Vote(election_id=election.id, position_id=position.id, candidate_id=candidate_id, cast_at=now))
-            cast += 1
     db.session.commit()
     record_audit('ballot_submitted', f"Ballot submitted for {election.name} ({invitation.email})",
                  election_id=election.id, invitation_id=invitation.id)

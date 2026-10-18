@@ -9,13 +9,14 @@
 <div class="v-card">
   {% for row in rows %}
   <div class="review-row">
-    <div class="grow"><div class="pos">{{ row.position.name }}</div>
-      {% if row.candidate %}<div class="ch">{{ row.candidate.name }}</div>{% else %}<div class="ch none">No selection</div>{% endif %}</div>
-    {% if row.candidate %}{{ photo(row.candidate, 'avatar avatar-lg') }}{% endif %}
+    <div class="grow"><div class="pos">{{ row.position.name }}{% if row.limit > 1 %} <span class="faint">· up to {{ row.limit }}</span>{% endif %}</div>
+      {% if row.candidates %}{% for c in row.candidates %}<div class="ch">{{ c.name }}</div>{% endfor %}{% else %}<div class="ch none">No selection</div>{% endif %}</div>
+    {% if row.candidates|length == 1 %}{{ photo(row.candidates[0], 'avatar avatar-lg') }}{% endif %}
   </div>
   {% endfor %}
 </div>
-{% if rows|selectattr('candidate', 'none')|list %}<div class="notice notice-warn" style="margin-top:14px">{{ icon('alert') }}<div>You haven't chosen anyone for {{ rows|selectattr('candidate', 'none')|list|length }} position(s). That's allowed, but you can't come back later.</div></div>{% endif %}
+{% set skipped = rows|rejectattr('candidates')|list %}
+{% if skipped %}<div class="notice notice-warn" style="margin-top:14px">{{ icon('alert') }}<div>You haven't chosen anyone for {{ skipped|length }} position(s). That's allowed, but you can't come back later.</div></div>{% endif %}
 <div class="row-flex" style="margin-top:20px">
   <a class="btn btn-lg grow" style="flex:1" href="{{ url_for('public.ballot') }}">{{ icon('arrow-left') }}Edit choices</a>
   <form method="post" action="{{ url_for('public.submit_ballot') }}" style="flex:1.4" data-no-loading>{{ csrf() }}<button class="btn btn-brand btn-lg btn-block" type="submit">Submit ballot</button></form>

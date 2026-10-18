@@ -40,17 +40,19 @@
       <div class="pos-head">
         <span class="grip" title="Drag to reorder" aria-label="Drag to reorder">{{ icon('grip') }}</span>
         <div class="grow"><h3 class="truncate">{{ p.name }}</h3>{% if p.description %}<div class="faint truncate" style="font-size:12.5px">{{ p.description }}</div>{% endif %}</div>
+        {% if p.max_selections > 1 %}<span class="pill pill-info pill-plain">Choose up to {{ p.max_selections }}</span>{% endif %}
         <span class="pill pill-plain {{ 'pill-warn' if p.candidates|length >= p.candidate_slots }}">{{ p.candidates|length }} / {{ p.candidate_slots }} candidates</span>
-        <button type="button" class="btn btn-ghost btn-icon btn-sm" aria-label="Edit position" data-open="#position-dialog" data-mode="edit" data-title="Edit position" data-action="{{ url_for('admin.update_position', position_id=p.id) }}" data-fill='{{ {"name": p.name, "description": p.description or "", "candidate_slots": p.candidate_slots}|tojson }}'>{{ icon('edit') }}</button>
+        <button type="button" class="btn btn-ghost btn-icon btn-sm" aria-label="Edit position" data-open="#position-dialog" data-mode="edit" data-title="Edit position" data-action="{{ url_for('admin.update_position', position_id=p.id) }}" data-fill='{{ {"name": p.name, "description": p.description or "", "candidate_slots": p.candidate_slots, "max_selections": p.max_selections}|tojson }}'>{{ icon('edit') }}</button>
         <form method="post" action="{{ url_for('admin.delete_position', position_id=p.id) }}" data-async data-swap="positions-list,ws-stats" data-confirm="Delete “{{ p.name }}” and its {{ p.candidates|length }} candidate(s)? This can't be undone." data-confirm-title="Delete position" data-confirm-ok="Delete">{{ csrf() }}<button class="btn btn-ghost btn-icon btn-sm" aria-label="Delete position" type="submit">{{ icon('trash') }}</button></form>
       </div>
       <div class="cand-list" data-sortable data-reorder-url="{{ url_for('admin.reorder_candidates', position_id=p.id) }}">
         {% for c in p.candidates %}
-        <div class="cand" data-sort-item data-id="{{ c.id }}">
+        <div class="cand {{ 'is-out' if not c.is_eligible }}" data-sort-item data-id="{{ c.id }}">
           <span class="grip" title="Drag to reorder" aria-label="Drag to reorder">{{ icon('grip') }}</span>
           {{ photo(c) }}
           <div class="grow"><div class="name truncate">{{ c.name }}</div>{% if c.description %}<div class="bio truncate">{{ c.description }}</div>{% endif %}</div>
-          <button type="button" class="btn btn-ghost btn-icon btn-sm" aria-label="Edit {{ c.name }}" data-open="#candidate-dialog" data-mode="edit" data-title="Edit candidate" data-action="{{ url_for('admin.update_candidate', candidate_id=c.id) }}" data-photo="{{ (c.photo_url if c.photo_url and c.photo_url.startswith('http') else url_for('static', filename=c.photo_url)) if c.photo_url else '' }}" data-fill='{{ {"name": c.name, "description": c.description or "", "position_id": p.id}|tojson }}'>{{ icon('edit') }}</button>
+          {% if not c.is_eligible %}<span class="pill pill-plain {{ 'pill-danger' if c.status == 'dismissed' }}">{{ c.status|title }}</span>{% endif %}
+          <button type="button" class="btn btn-ghost btn-icon btn-sm" aria-label="Edit {{ c.name }}" data-open="#candidate-dialog" data-mode="edit" data-title="Edit candidate" data-action="{{ url_for('admin.update_candidate', candidate_id=c.id) }}" data-photo="{{ (c.photo_url if c.photo_url and c.photo_url.startswith('http') else url_for('static', filename=c.photo_url)) if c.photo_url else '' }}" data-fill='{{ {"name": c.name, "description": c.description or "", "position_id": p.id, "status": c.status}|tojson }}'>{{ icon('edit') }}</button>
           <form method="post" action="{{ url_for('admin.delete_candidate', candidate_id=c.id) }}" data-async data-swap="positions-list,ws-stats" data-confirm="Remove {{ c.name }} from {{ p.name }}?" data-confirm-title="Remove candidate" data-confirm-ok="Remove">{{ csrf() }}<button class="btn btn-ghost btn-icon btn-sm" aria-label="Delete {{ c.name }}" type="submit">{{ icon('trash') }}</button></form>
         </div>
         {% endfor %}
@@ -91,7 +93,8 @@
     <div class="dlg-head"><h2 id="pos-dlg-title" data-dlg-title>Add position</h2><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close aria-label="Close">{{ icon('x') }}</button></div>
     <div class="dlg-body">
       <div class="field"><label class="label" for="pd-name">Position name</label><input class="input" id="pd-name" name="name" required maxlength="128" placeholder="President"></div>
-      <div class="field"><label class="label" for="pd-slots">Maximum candidates</label><input class="input" id="pd-slots" name="candidate_slots" type="number" min="1" max="50" value="1" inputmode="numeric"><span class="hint">Voters pick one candidate per position. This caps how many can run.</span></div>
+      <div class="field"><label class="label" for="pd-slots">Maximum candidates</label><input class="input" id="pd-slots" name="candidate_slots" type="number" min="1" max="50" value="1" inputmode="numeric"><span class="hint">The most people who can run for this position.</span></div>
+      <div class="field"><label class="label" for="pd-picks">Voters can choose up to</label><input class="input" id="pd-picks" name="max_selections" type="number" min="1" max="50" value="1" inputmode="numeric"><span class="hint">Leave at 1 for a single winner. Set 2 or more when several seats are filled from this position; that many candidates win.</span></div>
       <div class="field"><label class="label" for="pd-desc">Description <span class="faint">(optional)</span></label><textarea class="textarea" id="pd-desc" name="description" rows="2"></textarea></div>
     </div>
     <div class="dlg-foot"><button type="button" class="btn" data-close>Cancel</button><button type="submit" class="btn btn-primary">Save</button></div>
@@ -109,6 +112,9 @@
         <div class="row-flex"><span data-photo-preview></span><input class="input grow" id="cd-photo" name="photo" type="file" accept="image/png,image/jpeg,image/gif,image/webp" data-preview="[data-photo-preview]"></div>
         <span class="hint">PNG, JPG, GIF or WEBP, up to 4 MB. We resize it for you.</span></div>
       <label class="check hide" data-edit-only style="margin-top:12px"><input class="cb" type="checkbox" name="remove_photo"> Remove current photo</label>
+      <div class="field hide" data-edit-only><label class="label" for="cd-status">Status</label>
+        <select class="select" id="cd-status" name="status"><option value="active">Active</option><option value="resigned">Resigned (gave up the seat)</option><option value="dismissed">Dismissed</option></select>
+        <span class="hint">Resigned and dismissed candidates stay in the results but can't win, and no longer appear on the ballot.</span></div>
       <div class="field hide" data-edit-only><label class="label" for="cd-pos">Position</label>
         <select class="select" id="cd-pos" name="position_id">{% for p in positions %}<option value="{{ p.id }}">{{ p.name }}</option>{% endfor %}</select></div>
     </div>

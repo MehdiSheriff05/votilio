@@ -10,7 +10,7 @@ from app import db
 from app.admin import admin_bp
 from app.admin.helpers import (done, election_stats, fail, is_super, parse_local_datetime, wants_json)
 from app.imports import csv_safe
-from app.models import Candidate, Election, Position, Vote
+from app.models import Candidate, Election, Position, Vote, VoterInvitation
 from app.utils import (delete_uploaded_file, login_required, public_url, record_audit,
                        save_uploaded_image, super_admin_required, utc_naive_to_local_input)
 
@@ -137,7 +137,10 @@ def delete_election(election_id):
     election = Election.query.get_or_404(election_id)
     name = election.name
     photos = [c.photo_url for p in election.positions for c in p.candidates]
+    for p in election.positions:
+        p.winner_override_id = None
     Vote.query.filter_by(election_id=election.id).delete()
+    db.session.flush()
     db.session.delete(election)
     db.session.commit()
     for photo in photos:
@@ -155,6 +158,15 @@ def _slots(raw) -> int:
         return 1
 
 
+def _picks(raw, slots: int, default: int = 1) -> int:
+    """How many candidates a voter may choose in a position (1 up to the number of candidate slots)."""
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        value = default
+    return max(1, min(value, slots))
+
+
 @admin_bp.route('/elections/<int:election_id>/positions/create', methods=['POST'])
 @login_required
 def create_position(election_id):
@@ -163,9 +175,11 @@ def create_position(election_id):
     name = request.form.get('name', '').strip()
     if not name:
         return fail('Give the position a name.', url)
+    slots = _slots(request.form.get('candidate_slots', '1'))
     position = Position(
         election=election, name=name[:128], description=request.form.get('description', '').strip(),
-        candidate_slots=_slots(request.form.get('candidate_slots', '1')),
+        candidate_slots=slots,
+        max_selections=_picks(request.form.get('max_selections'), slots),
         order_index=(db.session.query(db.func.max(Position.order_index)).filter_by(election_id=election.id).scalar() or 0) + 1,
     )
     db.session.add(position)
@@ -185,6 +199,9 @@ def update_position(position_id):
     position.name = name[:128]
     position.description = request.form.get('description', '').strip()
     position.candidate_slots = _slots(request.form.get('candidate_slots', position.candidate_slots))
+    position.max_selections = _picks(request.form.get('max_selections'), position.candidate_slots, position.max_selections or 1)
+    if position.max_selections > 1:
+        position.winner_override_id = None
     db.session.commit()
     record_audit('position_updated', f"Position '{position.name}' updated", election_id=position.election_id)
     return done('Position saved.', url)
@@ -205,6 +222,8 @@ def delete_position(position_id):
         return fail('Votes have already been cast for this position, so it cannot be deleted.', url, 409)
     name, photos = position.name, [c.photo_url for c in position.candidates]
     election_id = position.election_id
+    position.winner_override_id = None
+    db.session.flush()
     db.session.delete(position)
     db.session.commit()
     for photo in photos:
@@ -286,11 +305,15 @@ def update_candidate(candidate_id):
     if new_position and str(new_position).isdigit() and int(new_position) != candidate.position_id:
         target = Position.query.filter_by(id=int(new_position), election_id=candidate.position.election_id).first()
         if target and len(target.candidates) < target.candidate_slots:
+            if candidate.position.winner_override_id == candidate.id:
+                candidate.position.winner_override_id = None
             candidate.position = target
         else:
             return fail('That position is full or does not exist.', url, 409)
     candidate.name = name[:128]
     candidate.description = request.form.get('description', '').strip()
+    if request.form.get('status') in STATUS_FLAGS:
+        _apply_status(candidate, request.form['status'])
     db.session.commit()
     record_audit('candidate_updated', f"Candidate '{candidate.name}' updated", election_id=candidate.position.election_id)
     return done('Candidate saved.', url)
@@ -305,6 +328,9 @@ def delete_candidate(candidate_id):
     if _vote_count_for([candidate.id]):
         return fail('Votes have been cast for this candidate, so they cannot be deleted.', url, 409)
     name, photo = candidate.name, candidate.photo_url
+    if candidate.position.winner_override_id == candidate.id:
+        candidate.position.winner_override_id = None
+        db.session.flush()
     db.session.delete(candidate)
     db.session.commit()
     delete_uploaded_file(photo)
@@ -321,6 +347,57 @@ def reorder_candidates(position_id):
     return jsonify(ok=True)
 
 
+STATUS_FLAGS = {'active': (False, False), 'resigned': (True, False), 'dismissed': (False, True)}
+STATUS_LABELS = {'active': 'restored', 'resigned': 'marked as resigned', 'dismissed': 'marked as dismissed'}
+
+
+def _apply_status(candidate: Candidate, state: str) -> None:
+    candidate.is_declined, candidate.is_disqualified = STATUS_FLAGS[state]
+    if state != 'active' and candidate.position.winner_override_id == candidate.id:
+        candidate.position.winner_override_id = None
+
+
+@admin_bp.route('/candidates/<int:candidate_id>/status', methods=['POST'])
+@login_required
+def set_candidate_status(candidate_id):
+    """Resign or dismiss a candidate (or restore them). Allowed at any time, including after voting has closed."""
+    candidate = Candidate.query.get_or_404(candidate_id)
+    election_id = candidate.position.election_id
+    url = url_for('admin.view_results', election_id=election_id)
+    state = request.form.get('state', '')
+    if state not in STATUS_FLAGS:
+        return fail('Unknown status.', url)
+    _apply_status(candidate, state)
+    db.session.commit()
+    record_audit('candidate_status', f"{candidate.name} ({candidate.position.name}) {STATUS_LABELS[state]}", election_id=election_id)
+    return done(f'{candidate.name} {STATUS_LABELS[state]}.', url)
+
+
+@admin_bp.route('/positions/<int:position_id>/winner', methods=['POST'])
+@login_required
+def set_position_winner(position_id):
+    """Pick the winner by hand for a single-seat position, or clear the override to go back to the vote count."""
+    position = Position.query.get_or_404(position_id)
+    url = url_for('admin.view_results', election_id=position.election_id)
+    raw = request.form.get('candidate_id', '').strip()
+    if not raw:
+        position.winner_override_id = None
+        message = f'{position.name}: winner now follows the vote count.'
+    else:
+        if (position.max_selections or 1) > 1:
+            return fail('Choose winners for multi-seat positions by resigning or dismissing candidates instead.', url, 409)
+        candidate = next((c for c in position.candidates if str(c.id) == raw), None)
+        if not candidate:
+            return fail('That candidate is not in this position.', url)
+        if not candidate.is_eligible:
+            return fail(f'{candidate.name} is {candidate.status} and cannot be chosen.', url, 409)
+        position.winner_override_id = candidate.id
+        message = f'{candidate.name} set as the winner of {position.name}.'
+    db.session.commit()
+    record_audit('winner_override', message, election_id=position.election_id)
+    return done(message, url)
+
+
 # ---- results ---------------------------------------------------------------
 
 @admin_bp.route('/elections/<int:election_id>/results')
@@ -330,9 +407,15 @@ def view_results(election_id):
     public_results_url = None
     if election.results_public and election.results_slug:
         public_results_url = public_url('public.public_results', slug=election.results_slug)
+    summary = election.summarize_results()
+    sendable = {
+        'all': VoterInvitation.query.filter(VoterInvitation.election_id == election.id, VoterInvitation.email.isnot(None), VoterInvitation.email != '').count(),
+        'voted': VoterInvitation.query.filter(VoterInvitation.election_id == election.id, VoterInvitation.used.is_(True), VoterInvitation.email.isnot(None), VoterInvitation.email != '').count(),
+    }
     return render_template(
         'admin/results.html', election=election, section='results', stats=election_stats(election),
-        summary=election.summarize_results(), public_results_url=public_results_url,
+        summary=summary, conflicts=Election.winner_conflicts(summary), public_results_url=public_results_url,
+        sendable=sendable,
     )
 
 
@@ -359,13 +442,12 @@ def results_csv(election_id):
     election = Election.query.get_or_404(election_id)
     out = io.StringIO()
     writer = csv.writer(out)
-    writer.writerow(["position", "candidate", "votes", "percent", "winner"])
+    writer.writerow(["position", "candidate", "status", "votes", "percent", "winner"])
     for block in election.summarize_results():
-        total = block['total_votes']
         for item in block['candidates']:
-            pct = f"{100 * item['count'] / total:.1f}" if total else "0.0"
-            writer.writerow([csv_safe(block['position'].name), csv_safe(item['candidate'].name), item['count'], pct,
-                             "yes" if item['candidate'] in block['winners'] else ""])
+            writer.writerow([csv_safe(block['position'].name), csv_safe(item['candidate'].name),
+                             item['candidate'].status, item['count'], f"{item['pct']:.1f}",
+                             "yes" if item['candidate'] in block['winners'] else ("tied" if item['candidate'] in block['tied'] else "")])
     return Response(out.getvalue(), mimetype='text/csv',
                     headers={"Content-Disposition": f'attachment; filename="results-{election.id}.csv"'})
 

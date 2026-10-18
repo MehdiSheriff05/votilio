@@ -65,6 +65,11 @@
       <h3>Reminder</h3>
       <div class="field" style="margin-top:12px"><label class="label" for="reminder_subject">Subject</label><input class="input" id="reminder_subject" name="reminder_subject" value="{{ settings.reminder_subject }}" data-ph-target></div>
       <div class="field"><label class="label" for="reminder_body">Body</label><textarea class="textarea" id="reminder_body" name="reminder_body" rows="5" data-ph-target>{{ settings.reminder_body }}</textarea></div>
+      <hr class="divider">
+      <h3>Results</h3>
+      <p class="hint" style="margin-top:2px">Sent from the Results tab once results are published. Use <span class="mono">results_url</span> for the link.</p>
+      <div class="field" style="margin-top:12px"><label class="label" for="results_subject">Subject</label><input class="input" id="results_subject" name="results_subject" value="{{ settings.results_subject }}" data-ph-target></div>
+      <div class="field"><label class="label" for="results_body">Body</label><textarea class="textarea" id="results_body" name="results_body" rows="5" data-ph-target>{{ settings.results_body }}</textarea></div>
     </div>
     <div class="card-foot"><button class="btn btn-primary" type="submit">Save settings</button></div>
   </div>
